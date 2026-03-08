@@ -2,20 +2,30 @@
 
 import { useState } from "react";
 import {
-  Sparkles, Bell, User, Home, TrendingUp, Users, Plus, Flame, Zap
+  Sparkles, Bell, User, Home, TrendingUp, Users, Plus, Flame, Zap, Shield
 } from "lucide-react";
+import Link from "next/link";
 import { MOCK_ORACLES, HOT_ORACLES, TRENDING_ORACLES } from "@/lib/mockData";
+import { getNextGradeProgress } from "@/lib/grades";
 import CommunityFeed from "@/components/CommunityFeed";
 import QuickBetStrip from "@/components/QuickBetStrip";
 import RecommendationPanel from "@/components/RecommendationPanel";
 import LeaderBoard from "@/components/LeaderBoard";
 import OracleCard from "@/components/OracleCard";
+import GradeBadge from "@/components/GradeBadge";
+import GradeCard, { GradeGrid } from "@/components/GradeCard";
 import clsx from "clsx";
 
 type Tab = "홈" | "커뮤니티" | "랭킹";
 
+// 현재 로그인한 유저 (시뮬레이션)
+const MY_POINTS = 1500;
+const MY_ACCURACY = 0;
+const MY_BETS = 0;
+
 export default function OraclePage() {
   const [activeTab, setActiveTab] = useState<Tab>("홈");
+  const { current: myGrade } = getNextGradeProgress(MY_POINTS);
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen flex flex-col">
@@ -30,17 +40,24 @@ export default function OraclePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Points display */}
-            <div className="flex items-center gap-1 bg-oracle-card border border-oracle-border rounded-full px-3 py-1">
-              <Zap className="w-3.5 h-3.5 text-oracle-trending" />
-              <span className="text-xs font-bold text-white">1,500P</span>
+            {/* Grade + Points */}
+            <div className="flex items-center gap-1.5">
+              <GradeBadge gradeId={myGrade.id} size="xs" />
+              <div className="flex items-center gap-1 bg-oracle-card border border-oracle-border rounded-full px-2.5 py-1">
+                <Zap className="w-3 h-3 text-oracle-trending" />
+                <span className="text-xs font-bold text-white">{MY_POINTS.toLocaleString()}P</span>
+              </div>
             </div>
             <button className="w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center text-slate-400 hover:text-white transition-colors">
               <Bell className="w-4 h-4" />
             </button>
-            <button className="w-8 h-8 rounded-full bg-oracle-purple/20 border border-oracle-purple/50 flex items-center justify-center text-oracle-glow">
-              <User className="w-4 h-4" />
-            </button>
+            <Link
+              href="/admin"
+              className="w-8 h-8 rounded-full bg-oracle-purple/20 border border-oracle-purple/50 flex items-center justify-center text-oracle-glow hover:bg-oracle-purple/30 transition-colors"
+              title="관리자 페이지"
+            >
+              <Shield className="w-4 h-4" />
+            </Link>
           </div>
         </div>
 
@@ -68,9 +85,9 @@ export default function OraclePage() {
 
       {/* Main content */}
       <main className="flex-1 px-4 py-4 space-y-6">
-        {activeTab === "홈" && <HomeTab />}
-        {activeTab === "커뮤니티" && <CommunityTab />}
-        {activeTab === "랭킹" && <RankingTab />}
+        {activeTab === "홈" && <HomeTab myPoints={MY_POINTS} />}
+        {activeTab === "커뮤니티" && <CommunityFeed oracles={MOCK_ORACLES} />}
+        {activeTab === "랭킹" && <RankingTab myPoints={MY_POINTS} myAccuracy={MY_ACCURACY} myBets={MY_BETS} />}
       </main>
 
       {/* FAB */}
@@ -81,23 +98,19 @@ export default function OraclePage() {
   );
 }
 
-/* ── Tab Content ── */
-
-function HomeTab() {
+function HomeTab({ myPoints }: { myPoints: number }) {
   return (
     <div className="space-y-6">
-      {/* Hero banner */}
+      {/* Hero */}
       <div className="rounded-2xl bg-gradient-to-r from-oracle-violet to-oracle-purple p-5 space-y-2 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 fill-rule=%22evenodd%22%3E%3Cg fill=%22%23ffffff%22 fill-opacity=%220.05%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
         <div className="relative">
           <p className="text-xs font-bold text-purple-200 uppercase tracking-wider">오늘의 예언</p>
-          <h2 className="text-xl font-black text-white mt-1">
-            당신의 직감을 믿으세요 🔮
-          </h2>
+          <h2 className="text-xl font-black text-white mt-1">당신의 직감을 믿으세요 🔮</h2>
           <p className="text-sm text-purple-200 mt-1">
             지금 <span className="font-bold text-white">12,847명</span>이 예언 중
           </p>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             <div className="flex items-center gap-1 bg-white/20 rounded-full px-3 py-1 text-xs text-white font-medium">
               <Flame className="w-3 h-3 text-orange-300" />
               HOT 예언 {HOT_ORACLES.length}개
@@ -110,16 +123,17 @@ function HomeTab() {
         </div>
       </div>
 
+      {/* My grade card */}
+      <GradeCard points={myPoints} />
+
       {/* Quick bet strip */}
       <QuickBetStrip oracles={[...HOT_ORACLES, ...TRENDING_ORACLES]} />
 
-      {/* Top picks */}
+      {/* HOT oracles */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-oracle-hot" />
-            <h2 className="text-sm font-bold text-white">지금 핫한 예언</h2>
-          </div>
+        <div className="flex items-center gap-2">
+          <Flame className="w-4 h-4 text-oracle-hot" />
+          <h2 className="text-sm font-bold text-white">지금 핫한 예언</h2>
         </div>
         {MOCK_ORACLES.filter((o) => o.isHot).map((oracle) => (
           <OracleCard key={oracle.id} oracle={oracle} />
@@ -132,29 +146,30 @@ function HomeTab() {
   );
 }
 
-function CommunityTab() {
-  return <CommunityFeed oracles={MOCK_ORACLES} />;
-}
+function RankingTab({
+  myPoints,
+  myAccuracy,
+  myBets,
+}: {
+  myPoints: number;
+  myAccuracy: number;
+  myBets: number;
+}) {
+  const { current: myGrade, next, progress, pointsNeeded } = getNextGradeProgress(myPoints);
 
-function RankingTab() {
   return (
     <div className="space-y-4">
+      {/* My grade full card */}
+      <GradeCard points={myPoints} />
+
       {/* My stats */}
-      <div className="rounded-2xl border border-oracle-purple/30 bg-oracle-card p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-oracle-purple/20 border-2 border-oracle-purple flex items-center justify-center text-2xl">
-            🌟
-          </div>
-          <div>
-            <p className="text-white font-bold">나의 예언 통계</p>
-            <p className="text-xs text-slate-500">예언을 시작해 포인트를 쌓아보세요!</p>
-          </div>
-        </div>
+      <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
+        <p className="text-sm font-bold text-white">나의 예언 통계</p>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "총 포인트", value: "1,500P", color: "text-oracle-glow" },
-            { label: "적중률", value: "—", color: "text-oracle-trending" },
-            { label: "참여 예언", value: "0개", color: "text-emerald-400" },
+            { label: "총 포인트", value: `${myPoints.toLocaleString()}P`, color: "text-oracle-glow" },
+            { label: "적중률", value: myAccuracy > 0 ? `${myAccuracy}%` : "—", color: "text-oracle-trending" },
+            { label: "참여 예언", value: `${myBets}개`, color: "text-emerald-400" },
           ].map((stat) => (
             <div key={stat.label} className="text-center bg-slate-800/50 rounded-xl p-3">
               <p className={`text-lg font-black ${stat.color}`}>{stat.value}</p>
@@ -167,18 +182,8 @@ function RankingTab() {
       {/* Leaderboard */}
       <LeaderBoard />
 
-      {/* Recently closed */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-oracle-purple" />
-          마감된 예언 결과
-        </h2>
-        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 text-center space-y-2">
-          <p className="text-3xl">🔮</p>
-          <p className="text-sm text-slate-400">아직 마감된 예언이 없어요</p>
-          <p className="text-xs text-slate-600">예언에 참여하고 적중률을 높여보세요!</p>
-        </div>
-      </div>
+      {/* Grade roadmap */}
+      <GradeGrid currentPoints={myPoints} />
     </div>
   );
 }
