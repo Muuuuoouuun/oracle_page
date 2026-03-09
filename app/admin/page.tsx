@@ -8,10 +8,11 @@ import {
   Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star
 } from "lucide-react";
 import { MOCK_USERS, ADMIN_STATS } from "@/lib/adminData";
-import { MOCK_ORACLES } from "@/lib/mockData";
+import { useOracles, useUser } from "@/lib/context";
 import { GRADES, GradeId, getGradeByPoints, getGradeById } from "@/lib/grades";
 import { UserProfile, Oracle } from "@/lib/types";
 import GradeBadge from "@/components/GradeBadge";
+import OracleResult from "@/components/OracleResult";
 import clsx from "clsx";
 
 type AdminTab = "대시보드" | "사용자관리" | "예언관리" | "등급설정";
@@ -364,25 +365,24 @@ function UserManagementTab() {
 /*  Oracle Management Tab                 */
 /* ────────────────────────────────────── */
 function OracleManagementTab() {
-  const [oracles, setOracles] = useState<Oracle[]>(MOCK_ORACLES);
+  const { oracles, updateOracle, closeOracle } = useOracles();
   const [search, setSearch] = useState("");
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const [resultOracleId, setResultOracleId] = useState<string | null>(null);
 
-  const toggleStatus = (id: string) => {
-    setOracles((prev) =>
-      prev.map((o) => {
-        if (o.id !== id) return o;
-        const next = o.status === "live" ? "closed" : o.status === "upcoming" ? "live" : "upcoming";
-        return { ...o, status: next };
-      })
-    );
+  const cycleStatus = (id: string, current: string) => {
+    const next = current === "live" ? "closed" : current === "upcoming" ? "live" : "upcoming";
+    if (next === "closed") {
+      setClosingId(id); // trigger result selection
+    } else {
+      updateOracle(id, { status: next as any });
+    }
   };
 
-  const toggleHot = (id: string) => {
-    setOracles((prev) => prev.map((o) => (o.id === id ? { ...o, isHot: !o.isHot } : o)));
-  };
-
-  const toggleTrending = (id: string) => {
-    setOracles((prev) => prev.map((o) => (o.id === id ? { ...o, isTrending: !o.isTrending } : o)));
+  const handleSetWinner = (oracleId: string, optionId: string) => {
+    closeOracle(oracleId, optionId);
+    setClosingId(null);
+    setResultOracleId(oracleId);
   };
 
   const filtered = oracles.filter(
@@ -409,60 +409,92 @@ function OracleManagementTab() {
       </div>
 
       <div className="space-y-2">
-        {filtered.map((oracle) => (
-          <div key={oracle.id} className="rounded-xl border border-oracle-border bg-oracle-card p-3 space-y-2">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white line-clamp-2 leading-snug">{oracle.title}</p>
-                <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                  <span>{oracle.category}</span>
-                  <span>·</span>
-                  <span>{oracle.totalParticipants.toLocaleString()}명</span>
-                  <span>·</span>
-                  <span>{oracle.totalPool.toLocaleString()}P</span>
-                </div>
-              </div>
-              <button
-                onClick={() => toggleStatus(oracle.id)}
-                className={clsx(
-                  "shrink-0 text-[10px] font-bold px-2 py-1 rounded-full border transition-all",
-                  STATUS_COLORS[oracle.status]
-                )}
-              >
-                {STATUS_LABELS[oracle.status]}
-              </button>
-            </div>
+        {filtered.map((oracle) => {
+          const isClosing = closingId === oracle.id;
+          const showResult = resultOracleId === oracle.id;
 
-            {/* Controls */}
-            <div className="flex items-center gap-2 pt-1 border-t border-oracle-border">
-              <button
-                onClick={() => toggleHot(oracle.id)}
-                className={clsx(
-                  "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all",
-                  oracle.isHot
-                    ? "bg-oracle-hot/20 border-oracle-hot/40 text-oracle-hot"
-                    : "bg-slate-800 border-slate-700 text-slate-500 hover:border-oracle-hot/30"
-                )}
-              >
-                <Flame className="w-3 h-3" /> HOT
-              </button>
-              <button
-                onClick={() => toggleTrending(oracle.id)}
-                className={clsx(
-                  "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all",
-                  oracle.isTrending
-                    ? "bg-oracle-trending/20 border-oracle-trending/40 text-oracle-trending"
-                    : "bg-slate-800 border-slate-700 text-slate-500 hover:border-oracle-trending/30"
-                )}
-              >
-                <TrendingUp className="w-3 h-3" /> 트렌딩
-              </button>
-              <div className="ml-auto flex items-center gap-1 text-xs text-slate-500">
-                <span className="text-slate-600">by</span> {oracle.creatorName}
+          return (
+            <div key={oracle.id} className={clsx(
+              "rounded-xl border bg-oracle-card p-3 space-y-2 transition-all",
+              isClosing ? "border-oracle-trending/50 bg-oracle-trending/5" : "border-oracle-border"
+            )}>
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white line-clamp-2 leading-snug">{oracle.title}</p>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                    <span>{oracle.category}</span>
+                    <span>·</span>
+                    <span>{oracle.totalParticipants.toLocaleString()}명</span>
+                    <span>·</span>
+                    <span>{oracle.totalPool.toLocaleString()}P</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => cycleStatus(oracle.id, oracle.status)}
+                  className={clsx(
+                    "shrink-0 text-[10px] font-bold px-2 py-1 rounded-full border transition-all",
+                    STATUS_COLORS[oracle.status]
+                  )}
+                >
+                  {STATUS_LABELS[oracle.status]}
+                </button>
               </div>
+
+              {/* Winner selection on close */}
+              {isClosing && (
+                <div className="space-y-2 p-3 rounded-xl bg-oracle-trending/10 border border-oracle-trending/30">
+                  <p className="text-xs font-bold text-oracle-trending">정답 옵션을 선택하세요</p>
+                  {oracle.options.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleSetWinner(oracle.id, opt.id)}
+                      className="w-full text-left px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-oracle-trending/60 text-sm text-white transition-colors flex items-center justify-between"
+                    >
+                      <span>{opt.label}</span>
+                      <span className="text-xs text-slate-500">{opt.percentage}% · {opt.totalBets.toLocaleString()}명</span>
+                    </button>
+                  ))}
+                  <button onClick={() => setClosingId(null)} className="text-xs text-slate-500 hover:text-white">취소</button>
+                </div>
+              )}
+
+              {/* Controls */}
+              <div className="flex items-center gap-2 pt-1 border-t border-oracle-border">
+                <button
+                  onClick={() => updateOracle(oracle.id, { isHot: !oracle.isHot })}
+                  className={clsx(
+                    "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all",
+                    oracle.isHot
+                      ? "bg-oracle-hot/20 border-oracle-hot/40 text-oracle-hot"
+                      : "bg-slate-800 border-slate-700 text-slate-500 hover:border-oracle-hot/30"
+                  )}
+                >
+                  <Flame className="w-3 h-3" /> HOT
+                </button>
+                <button
+                  onClick={() => updateOracle(oracle.id, { isTrending: !oracle.isTrending })}
+                  className={clsx(
+                    "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all",
+                    oracle.isTrending
+                      ? "bg-oracle-trending/20 border-oracle-trending/40 text-oracle-trending"
+                      : "bg-slate-800 border-slate-700 text-slate-500 hover:border-oracle-trending/30"
+                  )}
+                >
+                  <TrendingUp className="w-3 h-3" /> 트렌딩
+                </button>
+                <div className="ml-auto text-xs text-slate-600">by {oracle.creatorName}</div>
+              </div>
+
+              {/* Result preview */}
+              {showResult && (
+                <OracleResult
+                  oracle={oracle}
+                  winningOption={oracle.options.find(o => o.percentage === Math.max(...oracle.options.map(x => x.percentage)))!}
+                />
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

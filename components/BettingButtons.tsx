@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Coins, TrendingUp, Users } from "lucide-react";
+import { CheckCircle2, Coins, Users } from "lucide-react";
 import { BetOption } from "@/lib/types";
+import { useUser } from "@/lib/context";
 import clsx from "clsx";
 
 interface Props {
@@ -14,9 +15,12 @@ interface Props {
 const QUICK_AMOUNTS = [10, 50, 100, 500];
 
 export default function BettingButtons({ options, oracleId, onBet }: Props) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const { me, placeBet, myBets } = useUser();
+  const existingBet = myBets.find((b) => b.oracleId === oracleId);
+
+  const [selected, setSelected] = useState<string | null>(existingBet?.optionId ?? null);
   const [amount, setAmount] = useState<number>(50);
-  const [betPlaced, setBetPlaced] = useState(false);
+  const [betPlaced, setBetPlaced] = useState(!!existingBet);
   const [showAmountPicker, setShowAmountPicker] = useState(false);
 
   const handleSelect = (optionId: string) => {
@@ -27,13 +31,18 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
 
   const handleBet = () => {
     if (!selected || betPlaced) return;
+    if (me.points < amount) return; // insufficient points
+    const opt = options.find((o) => o.id === selected);
+    if (opt) placeBet(oracleId, selected, opt.label, "", amount);
     onBet?.(oracleId, selected, amount);
     setBetPlaced(true);
     setShowAmountPicker(false);
   };
 
   const handleQuickBet = (optionId: string, amt: number) => {
-    if (betPlaced) return;
+    if (betPlaced || me.points < amt) return;
+    const opt = options.find((o) => o.id === optionId);
+    if (opt) placeBet(oracleId, optionId, opt.label, "", amt);
     setSelected(optionId);
     setAmount(amt);
     onBet?.(oracleId, optionId, amt);
@@ -42,6 +51,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
   };
 
   const selectedOption = options.find((o) => o.id === selected);
+  const notEnoughPoints = me.points < amount;
 
   if (betPlaced) {
     return (
@@ -144,9 +154,13 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
               className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-oracle-purple"
               placeholder="직접 입력"
             />
+            {notEnoughPoints && (
+              <p className="text-xs text-oracle-hot w-full">포인트 부족 ({me.points.toLocaleString()}P 보유)</p>
+            )}
             <button
               onClick={handleBet}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-oracle-purple to-oracle-glow text-white font-bold text-sm hover:opacity-90 active:scale-95 transition-all"
+              disabled={notEnoughPoints}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-oracle-purple to-oracle-glow text-white font-bold text-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Coins className="w-4 h-4" />
               배팅!

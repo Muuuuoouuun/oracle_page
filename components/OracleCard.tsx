@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { Oracle } from "@/lib/types";
 import TrendingBadge from "./TrendingBadge";
 import BettingButtons from "./BettingButtons";
@@ -65,9 +66,11 @@ export default function OracleCard({ oracle, compact = false }: Props) {
                 isLive={oracle.status === "live"}
               />
             </div>
-            <h3 className="font-bold text-white text-sm leading-snug line-clamp-2">
-              {oracle.title}
-            </h3>
+            <Link href={`/oracle/${oracle.id}`} className="group/title">
+              <h3 className="font-bold text-white text-sm leading-snug line-clamp-2 group-hover/title:text-oracle-glow transition-colors">
+                {oracle.title}
+              </h3>
+            </Link>
           </div>
           <div className="text-2xl shrink-0">{oracle.creatorAvatar}</div>
         </div>
@@ -144,10 +147,13 @@ export default function OracleCard({ oracle, compact = false }: Props) {
                 #{tag}
               </span>
             ))}
-            <button className="flex items-center gap-1 hover:text-slate-300 transition-colors">
+            <Link href={`/oracle/${oracle.id}`} className="flex items-center gap-1 hover:text-slate-300 transition-colors">
               <MessageCircle className="w-3.5 h-3.5" />
               {oracle.commentCount}
-            </button>
+            </Link>
+            <Link href={`/oracle/${oracle.id}`} className="flex items-center gap-1 hover:text-oracle-purple transition-colors">
+              <ExternalLink className="w-3 h-3" />
+            </Link>
           </div>
         </div>
       </div>
