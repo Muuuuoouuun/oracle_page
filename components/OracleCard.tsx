@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp, ExternalLink, Share2, Check } from "lucide-react";
 import Link from "next/link";
 import { Oracle } from "@/lib/types";
 import TrendingBadge from "./TrendingBadge";
@@ -36,7 +36,20 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function OracleCard({ oracle, compact = false }: Props) {
   const [expanded, setExpanded] = useState(!compact);
-  const [liked, setLiked] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/oracle/${oracle.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: oracle.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {}
+  };
 
   const categoryColor = CATEGORY_COLORS[oracle.category] ?? "text-slate-400 bg-slate-500/10";
   const timeLeft = formatTimeLeft(oracle.endsAt);
@@ -56,9 +69,12 @@ export default function OracleCard({ oracle, compact = false }: Props) {
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1.5 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={clsx("text-xs font-medium px-2 py-0.5 rounded-full", categoryColor)}>
+              <Link
+                href={`/category/${encodeURIComponent(oracle.category)}`}
+                className={clsx("text-xs font-medium px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity", categoryColor)}
+              >
                 {oracle.category}
-              </span>
+              </Link>
               <TrendingBadge
                 isHot={oracle.isHot}
                 isTrending={oracle.isTrending}
@@ -151,6 +167,9 @@ export default function OracleCard({ oracle, compact = false }: Props) {
               <MessageCircle className="w-3.5 h-3.5" />
               {oracle.commentCount}
             </Link>
+            <button onClick={handleShare} className="flex items-center gap-1 hover:text-oracle-purple transition-colors" title="공유">
+              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Share2 className="w-3 h-3" />}
+            </button>
             <Link href={`/oracle/${oracle.id}`} className="flex items-center gap-1 hover:text-oracle-purple transition-colors">
               <ExternalLink className="w-3 h-3" />
             </Link>

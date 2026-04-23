@@ -7,7 +7,7 @@ import {
   Flame, TrendingUp, Sparkles, Send
 } from "lucide-react";
 import { useOracles, useUser } from "@/lib/context";
-import { getGradeById } from "@/lib/grades";
+import { GradeId } from "@/lib/grades";
 import BettingButtons from "@/components/BettingButtons";
 import TrendingBadge from "@/components/TrendingBadge";
 import GradeBadge from "@/components/GradeBadge";
@@ -59,7 +59,7 @@ interface CommentData {
   id: string;
   author: string;
   avatar: string;
-  gradeId: string;
+  gradeId: GradeId;
   text: string;
   likes: number;
   liked: boolean;
@@ -171,7 +171,7 @@ function CommentSection({ oracleId }: { oracleId: string }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-bold text-white">{c.author}</span>
-                <GradeBadge gradeId={c.gradeId as any} size="xs" />
+                <GradeBadge gradeId={c.gradeId} size="xs" />
                 <span className="text-xs text-slate-600">{timeAgo(c.createdAt)}</span>
               </div>
               <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>

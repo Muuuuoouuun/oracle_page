@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield } from "lucide-react";
 import Link from "next/link";
+import { Oracle } from "@/lib/types";
 import { useOracles, useUser } from "@/lib/context";
 import { getNextGradeProgress } from "@/lib/grades";
-import { HOT_ORACLES, TRENDING_ORACLES } from "@/lib/mockData";
 import CommunityFeed from "@/components/CommunityFeed";
 import QuickBetStrip from "@/components/QuickBetStrip";
 import RecommendationPanel from "@/components/RecommendationPanel";
@@ -15,6 +15,8 @@ import GradeBadge from "@/components/GradeBadge";
 import GradeCard, { GradeGrid } from "@/components/GradeCard";
 import CreateOracleModal from "@/components/CreateOracleModal";
 import NotificationPanel from "@/components/NotificationPanel";
+import OnboardingModal from "@/components/OnboardingModal";
+import DailyBonus from "@/components/DailyBonus";
 import clsx from "clsx";
 
 type Tab = "홈" | "커뮤니티" | "랭킹";
@@ -25,6 +27,30 @@ export default function OraclePage() {
   const [activeTab, setActiveTab] = useState<Tab>("홈");
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !localStorage.getItem("oracle_onboarded");
+  });
+  const [showDailyBonus, setShowDailyBonus] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const last = localStorage.getItem("oracle_daily_bonus");
+    return !last || new Date(last).toDateString() !== new Date().toDateString();
+  });
+
+  const handleOnboardingClose = () => {
+    localStorage.setItem("oracle_onboarded", "1");
+    setShowOnboarding(false);
+    // show daily bonus after onboarding
+    const last = localStorage.getItem("oracle_daily_bonus");
+    if (!last || new Date(last).toDateString() !== new Date().toDateString()) {
+      setShowDailyBonus(true);
+    }
+  };
+
+  const handleDailyBonusClose = () => {
+    localStorage.setItem("oracle_daily_bonus", new Date().toISOString());
+    setShowDailyBonus(false);
+  };
 
   const { current: myGrade } = getNextGradeProgress(me.points);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -119,14 +145,16 @@ export default function OraclePage() {
 
       {/* Modals */}
       {showCreate && <CreateOracleModal onClose={() => setShowCreate(false)} />}
+      {showOnboarding && <OnboardingModal onClose={handleOnboardingClose} />}
+      {!showOnboarding && showDailyBonus && <DailyBonus onClose={handleDailyBonusClose} />}
     </div>
   );
 }
 
 function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
-  oracles: typeof import("@/lib/types").Oracle[];
-  hotOracles: typeof import("@/lib/types").Oracle[];
-  trendingOracles: typeof import("@/lib/types").Oracle[];
+  oracles: Oracle[];
+  hotOracles: Oracle[];
+  trendingOracles: Oracle[];
   myPoints: number;
 }) {
   return (
