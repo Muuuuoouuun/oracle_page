@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield } from "lucide-react";
+import { Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield, Star } from "lucide-react";
 import Link from "next/link";
 import { Oracle } from "@/lib/types";
 import { useOracles, useUser } from "@/lib/context";
@@ -40,7 +40,6 @@ export default function OraclePage() {
   const handleOnboardingClose = () => {
     localStorage.setItem("oracle_onboarded", "1");
     setShowOnboarding(false);
-    // show daily bonus after onboarding
     const last = localStorage.getItem("oracle_daily_bonus");
     if (!last || new Date(last).toDateString() !== new Date().toDateString()) {
       setShowDailyBonus(true);
@@ -57,35 +56,43 @@ export default function OraclePage() {
   const hotOracles = oracles.filter((o) => o.isHot);
   const trendingOracles = oracles.filter((o) => o.isTrending);
 
+  const TAB_CONFIG = [
+    { key: "홈" as Tab,      icon: <Home className="w-4 h-4" />,        label: "홈" },
+    { key: "커뮤니티" as Tab, icon: <Users className="w-4 h-4" />,       label: "커뮤니티" },
+    { key: "랭킹" as Tab,     icon: <TrendingUp className="w-4 h-4" />,  label: "랭킹" },
+  ];
+
   return (
     <div className="max-w-2xl mx-auto min-h-screen flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-oracle-dark/80 backdrop-blur-md border-b border-oracle-border">
+      <header className="sticky top-0 z-20 bg-oracle-dark/85 backdrop-blur-xl border-b border-oracle-border/60">
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🔮</span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl animate-float">🔮</span>
             <div>
               <h1 className="text-base font-black gradient-text leading-none">Oracle Page</h1>
-              <p className="text-xs text-slate-500">당신은 예언가입니까?</p>
+              <p className="text-[11px] text-slate-500 font-medium">당신은 예언가입니까?</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/profile/me`} className="flex items-center gap-1.5">
+            {/* Points badge */}
+            <Link href="/profile/me" className="flex items-center gap-1.5 group">
               <GradeBadge gradeId={myGrade.id} size="xs" />
-              <div className="flex items-center gap-1 bg-oracle-card border border-oracle-border rounded-full px-2.5 py-1">
+              <div className="flex items-center gap-1 bg-oracle-card border border-oracle-border rounded-full px-2.5 py-1 group-hover:border-oracle-purple/50 transition-colors">
                 <Zap className="w-3 h-3 text-oracle-trending" />
                 <span className="text-xs font-bold text-white">{me.points.toLocaleString()}P</span>
               </div>
             </Link>
+
             {/* Notification bell */}
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center text-slate-400 hover:text-white transition-colors relative"
+                className="w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center text-slate-400 hover:text-white hover:border-oracle-border/80 transition-all relative"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-oracle-hot text-white text-[9px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-oracle-hot text-white text-[9px] font-black flex items-center justify-center shadow-hot-sm">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -94,9 +101,11 @@ export default function OraclePage() {
                 <NotificationPanel onClose={() => setShowNotifications(false)} />
               )}
             </div>
+
+            {/* Admin link */}
             <Link
               href="/admin"
-              className="w-8 h-8 rounded-full bg-oracle-purple/20 border border-oracle-purple/50 flex items-center justify-center text-oracle-glow hover:bg-oracle-purple/30 transition-colors"
+              className="w-8 h-8 rounded-full bg-oracle-purple/15 border border-oracle-purple/40 flex items-center justify-center text-oracle-glow hover:bg-oracle-purple/25 hover:border-oracle-purple/60 transition-all"
               title="관리자 페이지"
             >
               <Shield className="w-4 h-4" />
@@ -105,22 +114,20 @@ export default function OraclePage() {
         </div>
 
         {/* Tab nav */}
-        <div className="flex border-t border-oracle-border">
-          {(["홈", "커뮤니티", "랭킹"] as Tab[]).map((tab) => (
+        <div className="flex border-t border-oracle-border/50">
+          {TAB_CONFIG.map(({ key, icon, label }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={key}
+              onClick={() => setActiveTab(key)}
               className={clsx(
-                "flex-1 py-2.5 text-sm font-medium transition-all border-b-2",
-                activeTab === tab
+                "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold transition-all border-b-2",
+                activeTab === key
                   ? "border-oracle-purple text-oracle-purple"
-                  : "border-transparent text-slate-500 hover:text-white"
+                  : "border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-700"
               )}
             >
-              {tab === "홈" && <Home className="w-4 h-4 inline mr-1" />}
-              {tab === "커뮤니티" && <Users className="w-4 h-4 inline mr-1" />}
-              {tab === "랭킹" && <TrendingUp className="w-4 h-4 inline mr-1" />}
-              {tab}
+              {icon}
+              {label}
             </button>
           ))}
         </div>
@@ -138,9 +145,9 @@ export default function OraclePage() {
       {/* FAB */}
       <button
         onClick={() => setShowCreate(true)}
-        className="fixed bottom-6 right-4 w-14 h-14 rounded-full bg-gradient-to-r from-oracle-purple to-oracle-glow shadow-lg shadow-oracle-purple/40 flex items-center justify-center hover:opacity-90 active:scale-95 transition-all animate-glow z-30"
+        className="fixed bottom-6 right-4 w-14 h-14 rounded-full btn-oracle flex items-center justify-center hover:opacity-90 active:scale-95 transition-all animate-glow z-30"
       >
-        <Plus className="w-6 h-6 text-white" />
+        <Plus className="w-6 h-6 text-white relative z-10" />
       </button>
 
       {/* Modals */}
@@ -157,24 +164,57 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
   trendingOracles: Oracle[];
   myPoints: number;
 }) {
+  const activeOracles = oracles.filter(o => o.isNew).length;
+
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl bg-gradient-to-r from-oracle-violet to-oracle-purple p-5 space-y-2 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 fill-rule=%22evenodd%22%3E%3Cg fill=%22%23ffffff%22 fill-opacity=%220.05%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
-        <div className="relative">
-          <p className="text-xs font-bold text-purple-200 uppercase tracking-wider">오늘의 예언</p>
-          <h2 className="text-xl font-black text-white mt-1">당신의 직감을 믿으세요 🔮</h2>
-          <p className="text-sm text-purple-200 mt-1">
-            지금 <span className="font-bold text-white">{(12847 + oracles.filter(o => o.isNew).length * 23).toLocaleString()}명</span>이 예언 중
-          </p>
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <div className="flex items-center gap-1 bg-white/20 rounded-full px-3 py-1 text-xs text-white font-medium">
-              <Flame className="w-3 h-3 text-orange-300" />
-              HOT 예언 {hotOracles.length}개
+    <div className="space-y-6 animate-fade-in">
+      {/* Hero banner */}
+      <div className="rounded-2xl overflow-hidden relative">
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-oracle-violet via-oracle-purple to-[#5B21B6]" />
+        {/* Animated shimmer overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent shimmer" />
+        {/* Dot pattern */}
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)`,
+          backgroundSize: "24px 24px",
+        }} />
+        {/* Glow orbs */}
+        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-oracle-glow/30 blur-3xl" />
+        <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-oracle-hot/20 blur-2xl" />
+
+        <div className="relative p-5 space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <p className="text-[11px] font-black text-purple-200 uppercase tracking-widest">오늘의 예언</p>
+              <h2 className="text-xl font-black text-white leading-tight">
+                당신의 직감을<br />믿으세요 🔮
+              </h2>
             </div>
-            <div className="flex items-center gap-1 bg-white/20 rounded-full px-3 py-1 text-xs text-white font-medium">
-              <Sparkles className="w-3 h-3 text-yellow-300" />
-              신규 {oracles.filter(o => o.isNew).length}개
+            <div className="text-4xl animate-float">{/* decorative emoji removed - clean design */}</div>
+          </div>
+
+          <p className="text-sm text-purple-200">
+            지금{" "}
+            <span className="font-black text-white text-glow">
+              {(12847 + activeOracles * 23).toLocaleString()}명
+            </span>
+            이 예언 중
+          </p>
+
+          {/* Stat chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-white font-semibold border border-white/10">
+              <Flame className="w-3.5 h-3.5 text-orange-300" />
+              HOT {hotOracles.length}개
+            </div>
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-white font-semibold border border-white/10">
+              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+              신규 {activeOracles}개
+            </div>
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-white font-semibold border border-white/10">
+              <Star className="w-3.5 h-3.5 text-purple-300" />
+              전체 {oracles.length}개
             </div>
           </div>
         </div>
@@ -183,15 +223,23 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
       <GradeCard points={myPoints} />
       <QuickBetStrip oracles={[...hotOracles, ...trendingOracles].slice(0, 6)} />
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Flame className="w-4 h-4 text-oracle-hot" />
-          <h2 className="text-sm font-bold text-white">지금 핫한 예언</h2>
+      {/* Hot oracles section */}
+      {hotOracles.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-oracle-hot" />
+              <h2 className="text-sm font-bold text-white">지금 핫한 예언</h2>
+            </div>
+            <span className="text-xs text-slate-500">{hotOracles.length}개</span>
+          </div>
+          <div className="space-y-3">
+            {hotOracles.map((oracle) => (
+              <OracleCard key={oracle.id} oracle={oracle} />
+            ))}
+          </div>
         </div>
-        {hotOracles.map((oracle) => (
-          <OracleCard key={oracle.id} oracle={oracle} />
-        ))}
-      </div>
+      )}
 
       <RecommendationPanel oracles={oracles} />
     </div>
@@ -202,24 +250,34 @@ function RankingTab({ myPoints, myAccuracy, myBets }: {
   myPoints: number; myAccuracy: number; myBets: number;
 }) {
   const { current: myGrade } = getNextGradeProgress(myPoints);
+
+  const stats = [
+    { label: "총 포인트", value: `${myPoints.toLocaleString()}P`, color: "text-oracle-glow", sub: "누적 획득" },
+    { label: "적중률",    value: myAccuracy > 0 ? `${myAccuracy}%` : "—",  color: "text-oracle-trending", sub: "예언 정확도" },
+    { label: "참여 예언", value: `${myBets}개`,  color: "text-emerald-400", sub: "배팅 완료" },
+  ];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <GradeCard points={myPoints} />
+
+      {/* Stats card */}
       <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
-        <p className="text-sm font-bold text-white">나의 예언 통계</p>
+        <p className="text-sm font-bold text-white flex items-center gap-2">
+          <Zap className="w-4 h-4 text-oracle-trending" />
+          나의 예언 통계
+        </p>
         <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "총 포인트", value: `${myPoints.toLocaleString()}P`, color: "text-oracle-glow" },
-            { label: "적중률", value: myAccuracy > 0 ? `${myAccuracy}%` : "—", color: "text-oracle-trending" },
-            { label: "참여 예언", value: `${myBets}개`, color: "text-emerald-400" },
-          ].map((s) => (
-            <div key={s.label} className="text-center bg-slate-800/50 rounded-xl p-3">
-              <p className={`text-lg font-black ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+          {stats.map((s) => (
+            <div key={s.label} className="text-center bg-slate-800/60 rounded-xl p-3 border border-slate-700/40">
+              <p className={clsx("text-lg font-black", s.color)}>{s.value}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{s.label}</p>
+              <p className="text-[9px] text-slate-600">{s.sub}</p>
             </div>
           ))}
         </div>
       </div>
+
       <LeaderBoard />
       <GradeGrid currentPoints={myPoints} />
     </div>

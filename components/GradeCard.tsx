@@ -2,7 +2,7 @@
 
 import { Grade, GRADES, getNextGradeProgress } from "@/lib/grades";
 import clsx from "clsx";
-import { Shield, Star, ChevronRight } from "lucide-react";
+import { Shield, Star, ChevronRight, Trophy, Zap } from "lucide-react";
 
 interface Props {
   points: number;
@@ -15,70 +15,93 @@ export default function GradeCard({ points, showAll = false }: Props) {
   return (
     <div
       className={clsx(
-        "rounded-2xl border p-4 space-y-3",
+        "rounded-2xl border p-5 space-y-4 relative overflow-hidden",
         current.bgColor,
         current.borderColor
       )}
-      style={{ boxShadow: `0 0 20px ${current.glowColor}` }}
+      style={{ boxShadow: `0 0 28px ${current.glowColor}30, 0 4px 20px rgba(0,0,0,0.3)` }}
     >
-      {/* Current grade */}
-      <div className="flex items-center gap-3">
-        <div
-          className={clsx(
-            "w-14 h-14 rounded-2xl flex items-center justify-center text-3xl border-2",
-            current.bgColor,
-            current.borderColor
-          )}
-        >
-          {current.emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className={clsx("text-lg font-black", current.color)}>{current.name}</span>
-            <span className="text-xs text-slate-500">Lv.{current.rank}</span>
+      {/* Background decorative glow */}
+      <div
+        className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-20 blur-2xl pointer-events-none"
+        style={{ background: current.glowColor }}
+      />
+      <div
+        className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full opacity-10 blur-xl pointer-events-none"
+        style={{ background: current.glowColor }}
+      />
+
+      {/* Current grade row */}
+      <div className="relative flex items-center gap-4">
+        {/* Emoji icon with glow ring */}
+        <div className="relative shrink-0">
+          <div
+            className={clsx(
+              "w-16 h-16 rounded-2xl flex items-center justify-center text-4xl border-2",
+              current.bgColor, current.borderColor
+            )}
+            style={{ boxShadow: `0 0 16px ${current.glowColor}60` }}
+          >
+            {current.emoji}
           </div>
-          <p className={clsx("text-xs font-medium", current.color, "opacity-80")}>{current.title}</p>
-          <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{current.description}</p>
+          {/* Animated glow ring */}
+          <div
+            className="absolute inset-0 rounded-2xl animate-ping-slow opacity-30"
+            style={{ boxShadow: `0 0 0 3px ${current.glowColor}` }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={clsx("text-xl font-black", current.color)}>{current.name}</span>
+            <span className={clsx("text-[11px] font-bold px-2 py-0.5 rounded-full border", current.bgColor, current.color, current.borderColor)}>
+              Lv.{current.rank}
+            </span>
+          </div>
+          <p className={clsx("text-sm font-semibold mt-0.5", current.color, "opacity-85")}>{current.title}</p>
+          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{current.description}</p>
         </div>
       </div>
 
-      {/* Progress to next */}
+      {/* Progress to next grade */}
       {next ? (
-        <div className="space-y-1.5">
+        <div className="relative space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400">
-              다음 등급: <span className="font-bold text-white">{next.emoji} {next.name}</span>
+              다음: <span className="font-bold text-white">{next.emoji} {next.name}</span>
             </span>
-            <span className={clsx("font-bold", current.color)}>{progress}%</span>
+            <span className={clsx("font-black text-sm", current.color)}>{progress}%</span>
           </div>
-          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-slate-900/60 rounded-full overflow-hidden progress-bar">
             <div
-              className="h-full rounded-full transition-all duration-700"
+              className="h-full rounded-full transition-all duration-1000 ease-out relative"
               style={{
                 width: `${progress}%`,
                 background: `linear-gradient(to right, ${current.glowColor}, ${next.glowColor ?? current.glowColor})`,
               }}
             />
           </div>
-          <p className="text-xs text-slate-500">
-            <span className="font-bold text-white">{pointsNeeded.toLocaleString()}P</span> 더 모으면 승급!
+          <p className="text-xs text-slate-400">
+            <span className="font-bold text-white">{pointsNeeded.toLocaleString()}P</span>{" "}
+            더 모으면 <span className={clsx("font-semibold", current.color)}>승급!</span>
           </p>
         </div>
       ) : (
-        <div className="text-xs text-center text-slate-400 py-1">
-          ✨ 최고 등급 달성! 당신이 바로 신의 예언가입니다
+        <div className="relative flex items-center justify-center gap-2 py-2">
+          <Trophy className="w-4 h-4 text-oracle-trending" />
+          <span className="text-sm font-bold gradient-text-gold">최고 등급 달성! 당신이 바로 신의 예언가</span>
         </div>
       )}
 
       {/* Perks */}
-      <div className="space-y-1">
-        <p className="text-xs font-bold text-slate-400 flex items-center gap-1">
-          <Shield className="w-3 h-3" /> 현재 등급 혜택
+      <div className="relative space-y-2 pt-1 border-t border-slate-700/50">
+        <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5" /> 현재 등급 혜택
         </p>
-        <ul className="space-y-0.5">
+        <ul className="space-y-1">
           {current.perks.map((perk) => (
-            <li key={perk} className="text-xs text-slate-300 flex items-center gap-1.5">
-              <span className={clsx("w-1 h-1 rounded-full shrink-0", current.color.replace("text-", "bg-"))} />
+            <li key={perk} className="flex items-center gap-2 text-xs text-slate-300">
+              <Zap className={clsx("w-3 h-3 shrink-0", current.color)} />
               {perk}
             </li>
           ))}
@@ -88,7 +111,6 @@ export default function GradeCard({ points, showAll = false }: Props) {
   );
 }
 
-/** All grades overview grid */
 export function GradeGrid({ currentPoints }: { currentPoints: number }) {
   const { current } = getNextGradeProgress(currentPoints);
 
@@ -107,18 +129,20 @@ export function GradeGrid({ currentPoints }: { currentPoints: number }) {
             <div
               key={grade.id}
               className={clsx(
-                "flex items-center gap-3 p-3 rounded-xl border transition-all",
+                "flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-300",
                 isCurrentGrade
                   ? [grade.bgColor, grade.borderColor, "scale-[1.01]"]
                   : isUnlocked
-                  ? "bg-slate-800/30 border-slate-700/50"
-                  : "bg-slate-900/30 border-slate-800/30 opacity-50"
+                  ? "bg-slate-800/40 border-slate-700/60 hover:border-slate-600"
+                  : "bg-slate-900/30 border-slate-800/30 opacity-40"
               )}
-              style={isCurrentGrade ? { boxShadow: `0 0 12px ${grade.glowColor}` } : {}}
+              style={isCurrentGrade ? { boxShadow: `0 0 16px ${grade.glowColor}40` } : {}}
             >
-              <span className={clsx("text-2xl", !isUnlocked && "grayscale")}>{grade.emoji}</span>
+              <span className={clsx("text-2xl transition-all", !isUnlocked && "grayscale opacity-50", isCurrentGrade && "animate-bounce-soft")}>
+                {grade.emoji}
+              </span>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <span className={clsx("text-sm font-bold", isUnlocked ? grade.color : "text-slate-600")}>
                     {grade.name}
                   </span>
@@ -129,12 +153,11 @@ export function GradeGrid({ currentPoints }: { currentPoints: number }) {
                     </span>
                   )}
                 </div>
-                <p className={clsx("text-xs", isUnlocked ? "text-slate-400" : "text-slate-700")}>
-                  {grade.minPoints.toLocaleString()}P~
-                  {grade.maxPoints !== null ? ` ${grade.maxPoints.toLocaleString()}P` : ""}
+                <p className={clsx("text-xs mt-0.5", isUnlocked ? "text-slate-400" : "text-slate-700")}>
+                  {grade.minPoints.toLocaleString()}P{grade.maxPoints !== null ? ` ~ ${grade.maxPoints.toLocaleString()}P` : "+"}
                 </p>
               </div>
-              <ChevronRight className={clsx("w-4 h-4 shrink-0", isUnlocked ? grade.color : "text-slate-700")} />
+              <ChevronRight className={clsx("w-4 h-4 shrink-0 transition-colors", isUnlocked ? grade.color : "text-slate-700")} />
             </div>
           );
         })}
