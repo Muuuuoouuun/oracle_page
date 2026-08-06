@@ -217,7 +217,7 @@ function CommentSection({ oracleId }: { oracleId: string }) {
 export default function OracleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { oracles } = useOracles();
-  const { me, myBets, placeBet } = useUser();
+  const { me, myBets } = useUser();
   const [copied, setCopied] = useState(false);
 
   const oracle = oracles.find((o) => o.id === id);
@@ -244,11 +244,6 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
   const myBet = myBets.find((b) => b.oracleId === id);
   const isUrgent = oracle.endsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   const relatedOracles = oracles.filter((o) => o.id !== id && o.category === oracle.category).slice(0, 3);
-
-  const handleBet = (oracleId: string, optionId: string, amount: number) => {
-    const opt = oracle.options.find((o) => o.id === optionId);
-    if (opt) placeBet(oracleId, optionId, opt.label, oracle.title, amount);
-  };
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
@@ -321,7 +316,7 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
               <p className="text-sm text-slate-400">이 예언은 종료되었습니다</p>
             </div>
           ) : (
-            <BettingButtons options={oracle.options} oracleId={oracle.id} onBet={handleBet} />
+            <BettingButtons options={oracle.options} oracleId={oracle.id} />
           )}
         </div>
 
@@ -329,12 +324,13 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
         {oracle.tags.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {oracle.tags.map((tag) => (
-              <span
+              <Link
                 key={tag}
-                className="text-xs text-oracle-purple/80 border border-oracle-purple/25 rounded-full px-3 py-1 bg-oracle-purple/5 hover:bg-oracle-purple/15 hover:border-oracle-purple/50 transition-all cursor-pointer"
+                href={`/tag/${encodeURIComponent(tag)}`}
+                className="text-xs text-oracle-purple/80 border border-oracle-purple/25 rounded-full px-3 py-1 bg-oracle-purple/5 hover:bg-oracle-purple/15 hover:border-oracle-purple/50 transition-all"
               >
                 #{tag}
-              </span>
+              </Link>
             ))}
           </div>
         )}

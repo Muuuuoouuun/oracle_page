@@ -73,7 +73,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
     if (!selected || betPlaced) return;
     if (me.points < amount) return;
     const opt = options.find((o) => o.id === selected);
-    if (opt) placeBet(oracleId, selected, opt.label, "", amount);
+    if (opt) placeBet(oracleId, selected, opt.label, amount);
     onBet?.(oracleId, selected, amount);
     setBetPlaced(true);
     setShowAmountPicker(false);
@@ -84,7 +84,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
   const handleQuickBet = (optionId: string, amt: number) => {
     if (betPlaced || me.points < amt) return;
     const opt = options.find((o) => o.id === optionId);
-    if (opt) placeBet(oracleId, optionId, opt.label, "", amt);
+    if (opt) placeBet(oracleId, optionId, opt.label, amt);
     setSelected(optionId);
     setAmount(amt);
     onBet?.(oracleId, optionId, amt);
@@ -172,7 +172,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
         <div className="space-y-2">
           <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider text-center">빠른 배팅</p>
           <div className="grid grid-cols-2 gap-1.5">
-            {options.slice(0, 1).map((opt) =>
+            {options.map((opt) =>
               QUICK_AMOUNTS.map((amt) => (
                 <button
                   key={`${opt.id}-${amt}`}

@@ -4,7 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp,
-  CheckCircle2, XCircle, Clock, ChevronRight, Zap, Star,
+  CheckCircle2, XCircle, Clock, ChevronRight, Zap, Star, Settings,
 } from "lucide-react";
 import { useUser, useOracles } from "@/lib/context";
 import { MOCK_USERS } from "@/lib/adminData";
@@ -76,6 +76,15 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           <p className="text-sm font-bold text-white truncate">{isMe ? "나의 프로필" : user.name}</p>
         </div>
         <GradeBadge gradeId={grade.id} size="xs" isOverride={user.gradeOverride} />
+        {isMe && (
+          <Link
+            href="/settings"
+            className="w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center text-slate-400 hover:text-white hover:border-oracle-purple/50 transition-all"
+            title="설정"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
+        )}
       </div>
 
       <div className="px-4 py-5 space-y-5 animate-fade-in">

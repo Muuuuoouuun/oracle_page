@@ -181,9 +181,9 @@ export default function OracleCard({ oracle, compact = false }: Props) {
           <span className="hover:text-slate-300 transition-colors">by {oracle.creatorName}</span>
           <div className="flex items-center gap-3">
             {oracle.tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="text-oracle-purple/60 hover:text-oracle-purple cursor-pointer transition-colors">
+              <Link key={tag} href={`/tag/${encodeURIComponent(tag)}`} className="text-oracle-purple/60 hover:text-oracle-purple transition-colors">
                 #{tag}
-              </span>
+              </Link>
             ))}
             <Link href={`/oracle/${oracle.id}`} className="flex items-center gap-1 hover:text-slate-300 transition-colors">
               <MessageCircle className="w-3.5 h-3.5" />

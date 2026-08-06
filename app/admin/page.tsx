@@ -146,6 +146,7 @@ function DashboardTab() {
 /*  User Management Tab                   */
 /* ────────────────────────────────────── */
 function UserManagementTab() {
+  const { updateUser } = useUser();
   const [users, setUsers] = useState<UserProfile[]>(MOCK_USERS);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -167,21 +168,20 @@ function UserManagementTab() {
   };
 
   const saveEdit = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, gradeId: editGrade, points: editPoints, gradeOverride: getGradeByPoints(editPoints).id !== editGrade }
-          : u
-      )
-    );
+    const patch = { gradeId: editGrade, points: editPoints, gradeOverride: getGradeByPoints(editPoints).id !== editGrade };
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...patch } : u));
+    updateUser(userId, patch);
     setEditingId(null);
   };
 
   const toggleBan = (userId: string) => {
     setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, isBanned: !u.isBanned, banReason: u.isBanned ? undefined : "관리자 수동 제재" } : u
-      )
+      prev.map((u) => {
+        if (u.id !== userId) return u;
+        const next = { ...u, isBanned: !u.isBanned, banReason: u.isBanned ? undefined : "관리자 수동 제재" };
+        updateUser(userId, { isBanned: next.isBanned, banReason: next.banReason });
+        return next;
+      })
     );
   };
 
