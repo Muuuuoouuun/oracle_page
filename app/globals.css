@@ -35,7 +35,6 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
 .gradient-text-animated {
   background: linear-gradient(270deg, #A855F7, #7C3AED, #EC4899, #A855F7);
   background-size: 300% 300%;
@@ -44,38 +43,31 @@ body {
   background-clip: text;
   animation: gradientX 4s ease infinite;
 }
-
 .gradient-text-gold {
   background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 50%, #D97706 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
 .gradient-text-hot {
   background: linear-gradient(135deg, #FF4D6D, #FF8FA3);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-
-.text-glow {
-  text-shadow: 0 0 12px rgba(168, 85, 247, 0.7), 0 0 24px rgba(168, 85, 247, 0.3);
-}
-.text-glow-hot {
-  text-shadow: 0 0 12px rgba(255, 77, 109, 0.7);
-}
-.text-glow-gold {
-  text-shadow: 0 0 12px rgba(245, 158, 11, 0.7);
-}
+.text-glow      { text-shadow: 0 0 12px rgba(168, 85, 247, 0.7), 0 0 24px rgba(168, 85, 247, 0.3); }
+.text-glow-hot  { text-shadow: 0 0 12px rgba(255, 77, 109, 0.7); }
+.text-glow-gold { text-shadow: 0 0 12px rgba(245, 158, 11, 0.7); }
 
 /* ─── Cards ─────────────────────────────────────────────── */
 .card-hover {
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              border-color 0.22s ease;
 }
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(124, 58, 237, 0.18);
+  transform: translateY(-3px) scale(1.004);
+  box-shadow: 0 14px 40px rgba(124, 58, 237, 0.22), 0 4px 14px rgba(0, 0, 0, 0.28);
 }
 
 .glass-card {
@@ -85,7 +77,6 @@ body {
   border: 1px solid rgba(45, 31, 94, 0.8);
 }
 
-/* ─── Gradient border card ───────────────────────────────── */
 .gradient-border {
   position: relative;
   background: #1A1030;
@@ -98,6 +89,30 @@ body {
   box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.15), 0 8px 24px rgba(124, 58, 237, 0.15);
 }
 
+/* ─── Surface inner-top light line ──────────────────────── */
+.surface-light {
+  position: relative;
+}
+.surface-light::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── 3D card (JS-driven tilt via inline style) ──────────── */
+.card-3d {
+  will-change: transform;
+  transition: transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              border-color 0.22s ease;
+}
+
 /* ─── Progress bars ─────────────────────────────────────── */
 .progress-bar {
   position: relative;
@@ -108,24 +123,23 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.22) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.18) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2.5s linear infinite;
 }
 
-/* ─── Shimmer loading skeleton ───────────────────────────── */
+/* Clip-path wipe-from-left reveal with spring spring */
+.progress-reveal {
+  animation: progressReveal 0.65s cubic-bezier(0.22, 1.1, 0.36, 1) both;
+}
+.progress-reveal.pr-d1 { animation-delay: 60ms; }
+.progress-reveal.pr-d2 { animation-delay: 130ms; }
+.progress-reveal.pr-d3 { animation-delay: 200ms; }
+.progress-reveal.pr-d4 { animation-delay: 270ms; }
+
+/* ─── Shimmer skeleton ───────────────────────────────────── */
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    #1A1030 0%,
-    #2D1F5E 50%,
-    #1A1030 100%
-  );
+  background: linear-gradient(90deg, #1A1030 0%, #2D1F5E 50%, #1A1030 100%);
   background-size: 200% 100%;
   animation: shimmer 1.8s linear infinite;
   border-radius: 0.5rem;
@@ -134,8 +148,8 @@ body {
 /* ─── Buttons ───────────────────────────────────────────── */
 .btn-oracle {
   background: linear-gradient(135deg, #7C3AED, #A855F7);
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
+  transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
 }
@@ -143,61 +157,99 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #A855F7, #EC4899);
+  background: linear-gradient(135deg, #9333EA, #EC4899);
   opacity: 0;
   transition: opacity 0.2s ease;
+  border-radius: inherit;
+}
+.btn-oracle::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -110%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.13), transparent);
+  pointer-events: none;
+  border-radius: inherit;
 }
 .btn-oracle:hover::before { opacity: 1; }
-.btn-oracle:hover { box-shadow: 0 4px 22px rgba(168, 85, 247, 0.6); transform: translateY(-1px); }
-.btn-oracle:active { transform: translateY(0); }
-.btn-oracle > * { position: relative; z-index: 1; }
+.btn-oracle:hover::after  { animation: shineSweep 0.5s ease-out forwards; }
+.btn-oracle:hover         { box-shadow: 0 6px 28px rgba(168, 85, 247, 0.65); transform: translateY(-1px); }
+.btn-oracle:active        { transform: scale(0.96) translateY(0); box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4); }
+.btn-oracle > *           { position: relative; z-index: 1; }
+
+/* ─── Ripple press ───────────────────────────────────────── */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+}
+.ripple:active::after {
+  width: 280px; height: 280px;
+  animation: ripplePress 0.5s ease-out forwards;
+}
+
+/* ─── Shine hover sweep ──────────────────────────────────── */
+.shine-hover {
+  position: relative;
+  overflow: hidden;
+}
+.shine-hover::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -110%;
+  width: 55%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  pointer-events: none;
+}
+.shine-hover:hover::before {
+  animation: shineSweep 0.55s ease-out forwards;
+}
 
 /* ─── Glow effects ──────────────────────────────────────── */
-.oracle-glow:hover {
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
-}
-.oracle-glow-static {
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.25);
-}
-.hot-glow-static {
-  box-shadow: 0 0 16px rgba(255, 77, 109, 0.3);
-}
+.oracle-glow:hover    { box-shadow: 0 0 20px rgba(168, 85, 247, 0.35); }
+.oracle-glow-static   { box-shadow: 0 0 20px rgba(168, 85, 247, 0.25); }
+.hot-glow-static      { box-shadow: 0 0 16px rgba(255, 77, 109, 0.3); }
+.glow-pulse           { animation: glowPulse 3.2s ease-in-out infinite; }
+.hot-pulse            { animation: hotGlowPulse 2s ease-in-out infinite; }
+.hot-badge-pulse      { animation: hotBadgePulse 1.8s ease-in-out infinite; }
 
 /* ─── Rank medals ───────────────────────────────────────── */
 .rank-1 { color: #F59E0B; text-shadow: 0 0 10px rgba(245, 158, 11, 0.6); }
-.rank-2 { color: #CBD5E1; text-shadow: 0 0 8px rgba(203, 213, 225, 0.4); }
-.rank-3 { color: #CD7C39; text-shadow: 0 0 8px rgba(205, 124, 57, 0.5); }
+.rank-2 { color: #CBD5E1; text-shadow: 0 0 8px  rgba(203, 213, 225, 0.4); }
+.rank-3 { color: #CD7C39; text-shadow: 0 0 8px  rgba(205, 124, 57, 0.5);  }
 
-/* ─── Animations ────────────────────────────────────────── */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+/* ─── Spring entrance animations ────────────────────────── */
+.spring-in {
+  animation: springIn 0.46s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.pop-in {
+  animation: popIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.fade-slide {
+  animation: fadeSlide 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
-@keyframes gradientX {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-4px); }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(10px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
+/* ─── Stagger delay utilities ────────────────────────────── */
+.stagger-1 { animation-delay:  60ms; }
+.stagger-2 { animation-delay: 120ms; }
+.stagger-3 { animation-delay: 180ms; }
+.stagger-4 { animation-delay: 240ms; }
+.stagger-5 { animation-delay: 300ms; }
+.stagger-6 { animation-delay: 360ms; }
+.stagger-7 { animation-delay: 420ms; }
 
 /* ─── Pulse ring for hot items ──────────────────────────── */
 .pulse-ring {
@@ -211,13 +263,8 @@ body {
   border: 2px solid rgba(255, 77, 109, 0.5);
   animation: pulseRing 2s ease-out infinite;
 }
-@keyframes pulseRing {
-  0% { transform: scale(1); opacity: 0.8; }
-  70% { transform: scale(1.04); opacity: 0; }
-  100% { transform: scale(1.04); opacity: 0; }
-}
 
-/* ─── Confetti burst animation ──────────────────────────── */
+/* ─── Confetti burst ────────────────────────────────────── */
 @keyframes confettiBurst {
   0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
   60%  { opacity: 1; }
@@ -225,8 +272,7 @@ body {
 }
 .confetti-particle {
   position: absolute;
-  left: 50%;
-  top: 40%;
+  left: 50%; top: 40%;
   pointer-events: none;
   font-size: 1.1rem;
   line-height: 1;
@@ -234,9 +280,7 @@ body {
 }
 
 /* ─── Noise texture overlay ─────────────────────────────── */
-.noise {
-  position: relative;
-}
+.noise { position: relative; }
 .noise::after {
   content: '';
   position: absolute;
@@ -247,11 +291,165 @@ body {
   opacity: 0.5;
 }
 
+/* ─── Float deep (hero/emoji) ────────────────────────────── */
+.float-deep {
+  animation: floatDeep 5s ease-in-out infinite;
+}
+/* ─── Orb drift (ambient background) ────────────────────── */
+.orb-drift         { animation: orbDrift 14s ease-in-out infinite; }
+.orb-drift-slow    { animation: orbDrift 20s ease-in-out infinite reverse; }
+.orb-drift-medium  { animation: orbDrift 17s ease-in-out 2s infinite; }
+.orb-drift-alt     { animation: orbDrift 22s ease-in-out 5s infinite reverse; }
+
 /* ─── Category tag colors ───────────────────────────────── */
-.tag-economy   { color: #34D399; background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.25); }
-.tag-sports    { color: #60A5FA; background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.25); }
+.tag-economy   { color: #34D399; background: rgba(52, 211, 153, 0.1);  border-color: rgba(52, 211, 153, 0.25); }
+.tag-sports    { color: #60A5FA; background: rgba(96, 165, 250, 0.1);  border-color: rgba(96, 165, 250, 0.25); }
 .tag-politics  { color: #F87171; background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.25); }
 .tag-entertain { color: #F472B6; background: rgba(244, 114, 182, 0.1); border-color: rgba(244, 114, 182, 0.25); }
-.tag-tech      { color: #22D3EE; background: rgba(34, 211, 238, 0.1); border-color: rgba(34, 211, 238, 0.25); }
+.tag-tech      { color: #22D3EE; background: rgba(34, 211, 238, 0.1);  border-color: rgba(34, 211, 238, 0.25); }
 .tag-weather   { color: #7DD3FC; background: rgba(125, 211, 252, 0.1); border-color: rgba(125, 211, 252, 0.25); }
 .tag-social    { color: #C084FC; background: rgba(192, 132, 252, 0.1); border-color: rgba(192, 132, 252, 0.25); }
+
+/* ──────────────────────────────────────────────────────────
+   KEYFRAMES
+   ────────────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes gradientX {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* Standard float */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+/* More organic float with slight rotation for hero emoji */
+@keyframes floatDeep {
+  0%, 100% { transform: translateY(0px)  rotate(0deg);  }
+  25%       { transform: translateY(-7px) rotate(2.5deg); }
+  60%       { transform: translateY(-3px) rotate(-1.5deg); }
+  80%       { transform: translateY(-6px) rotate(1deg); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* Spring overshoot entrance */
+@keyframes springIn {
+  0%   { transform: scale(0.84) translateY(12px); opacity: 0; }
+  55%  { transform: scale(1.04) translateY(-3px); opacity: 1; }
+  100% { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+
+/* Pop spring for badges/chips */
+@keyframes popIn {
+  0%   { transform: scale(0)    rotate(-6deg); opacity: 0; }
+  60%  { transform: scale(1.14) rotate( 2deg); opacity: 1; }
+  100% { transform: scale(1)    rotate( 0deg); opacity: 1; }
+}
+
+@keyframes bounceSoft {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+
+@keyframes pulseRing {
+  0%   { transform: scale(1);    opacity: 0.8; }
+  70%  { transform: scale(1.04); opacity: 0; }
+  100% { transform: scale(1.04); opacity: 0; }
+}
+
+/* Progress wipe: clip-path from left */
+@keyframes progressReveal {
+  from { clip-path: inset(0 100% 0 0 round 9999px); }
+  to   { clip-path: inset(0 0%   0 0 round 9999px); }
+}
+
+/* Shine sweep across element */
+@keyframes shineSweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(260%); }
+}
+
+/* Ripple from center on press */
+@keyframes ripplePress {
+  0%   { transform: translate(-50%, -50%) scale(0);   opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
+}
+
+/* Slow organic blob drift */
+@keyframes orbDrift {
+  0%   { transform: translate(0px,   0px)   scale(1); }
+  33%  { transform: translate(32px, -22px)  scale(1.07); }
+  67%  { transform: translate(-20px, 30px)  scale(0.93); }
+  100% { transform: translate(0px,   0px)   scale(1); }
+}
+
+/* Breathing glow for oracle elements */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0  8px rgba(168, 85, 247, 0.22),
+                0 0 20px rgba(168, 85, 247, 0.07);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.55),
+                0 0 40px rgba(168, 85, 247, 0.20);
+  }
+}
+
+/* HOT red breathing glow */
+@keyframes hotGlowPulse {
+  0%, 100% { box-shadow: 0 0  8px rgba(255, 77, 109, 0.25); }
+  50%       { box-shadow: 0 0 22px rgba(255, 77, 109, 0.62),
+                           0 0 44px rgba(255, 77, 109, 0.18); }
+}
+
+/* HOT badge inner glow pulse */
+@keyframes hotBadgePulse {
+  0%, 100% {
+    background-color: rgba(255, 77, 109, 0.15);
+    box-shadow: 0 0  6px rgba(255, 77, 109, 0.22);
+  }
+  50% {
+    background-color: rgba(255, 77, 109, 0.28);
+    box-shadow: 0 0 14px rgba(255, 77, 109, 0.55);
+  }
+}
+
+/* ─── Reduced motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

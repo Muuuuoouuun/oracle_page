@@ -58,7 +58,8 @@ export default function LeaderBoard() {
               key={user.id}
               href={`/profile/${user.id}`}
               className={clsx(
-                "flex items-center gap-3 px-4 py-3 transition-all group",
+                "flex items-center gap-3 px-4 py-3 transition-all group fade-slide",
+                `stagger-${idx + 1}`,
                 isTop3
                   ? [top3.bg, "hover:brightness-110", top3.glow]
                   : "hover:bg-oracle-purple/5"

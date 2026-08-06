@@ -102,7 +102,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
     return (
       <div className="relative overflow-visible">
         {showConfetti && <ConfettiBurst />}
-        <div className="animate-scale-in rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-4">
+        <div className="spring-in rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -133,7 +133,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
               key={opt.id}
               onClick={() => handleSelect(opt.id)}
               className={clsx(
-                "relative group flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 transition-all duration-200",
+                "relative group flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 transition-all duration-200 ripple",
                 "hover:scale-[1.02] active:scale-[0.98]",
                 isSelected
                   ? [`border-transparent ring-2 ${g.ring} shadow-lg ${g.shadow}`, "bg-slate-800/80"]

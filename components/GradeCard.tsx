@@ -74,7 +74,7 @@ export default function GradeCard({ points, showAll = false }: Props) {
           </div>
           <div className="h-2.5 bg-slate-900/60 rounded-full overflow-hidden progress-bar">
             <div
-              className="h-full rounded-full transition-all duration-1000 ease-out relative"
+              className="h-full rounded-full transition-all duration-1000 ease-out relative progress-reveal"
               style={{
                 width: `${progress}%`,
                 background: `linear-gradient(to right, ${current.glowColor}, ${next.glowColor ?? current.glowColor})`,

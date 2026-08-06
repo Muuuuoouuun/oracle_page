@@ -68,7 +68,7 @@ export default function OraclePage() {
       <header className="sticky top-0 z-20 bg-oracle-dark/85 backdrop-blur-xl border-b border-oracle-border/60">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl animate-float">🔮</span>
+            <span className="text-2xl animate-float-deep">🔮</span>
             <div>
               <h1 className="text-base font-black gradient-text leading-none">Oracle Page</h1>
               <p className="text-[11px] text-slate-500 font-medium">당신은 예언가입니까?</p>
@@ -257,8 +257,10 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
             </span>
           </div>
           <div className="space-y-3">
-            {hotOracles.slice(0, 3).map((oracle) => (
-              <OracleCard key={oracle.id} oracle={oracle} />
+            {hotOracles.slice(0, 3).map((oracle, idx) => (
+              <div key={oracle.id} className={`fade-slide stagger-${idx + 1}`}>
+                <OracleCard oracle={oracle} />
+              </div>
             ))}
           </div>
           {hotOracles.length > 3 && (
