@@ -21,6 +21,38 @@ const OPTION_GRADIENTS = [
   { active: "from-blue-500 to-cyan-400",          ring: "ring-blue-500/50",      shadow: "shadow-blue-500/25" },
 ];
 
+const CONFETTI_PARTICLES: { emoji: string; dx: string; dy: string; rot: string; delay: string }[] = [
+  { emoji: "✨", dx: "-55px", dy: "-65px", rot: "45deg",  delay: "0s" },
+  { emoji: "🌟", dx: "55px",  dy: "-65px", rot: "-45deg", delay: "0.04s" },
+  { emoji: "🎉", dx: "-70px", dy: "-15px", rot: "90deg",  delay: "0.07s" },
+  { emoji: "💫", dx: "70px",  dy: "-15px", rot: "-90deg", delay: "0.10s" },
+  { emoji: "⭐", dx: "-45px", dy: "45px",  rot: "135deg", delay: "0.05s" },
+  { emoji: "✨", dx: "45px",  dy: "45px",  rot: "-135deg", delay: "0.08s" },
+  { emoji: "🎊", dx: "0px",   dy: "-75px", rot: "0deg",   delay: "0.02s" },
+  { emoji: "💥", dx: "0px",   dy: "50px",  rot: "180deg", delay: "0.06s" },
+];
+
+function ConfettiBurst() {
+  return (
+    <>
+      {CONFETTI_PARTICLES.map((p, i) => (
+        <span
+          key={i}
+          className="confetti-particle"
+          style={{
+            "--cdx": p.dx,
+            "--cdy": p.dy,
+            "--crot": p.rot,
+            animationDelay: p.delay,
+          } as React.CSSProperties}
+        >
+          {p.emoji}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export default function BettingButtons({ options, oracleId, onBet }: Props) {
   const { me, placeBet, myBets } = useUser();
   const existingBet = myBets.find((b) => b.oracleId === oracleId);
@@ -29,6 +61,7 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
   const [amount, setAmount] = useState<number>(50);
   const [betPlaced, setBetPlaced] = useState(!!existingBet);
   const [showAmountPicker, setShowAmountPicker] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const handleSelect = (optionId: string) => {
     if (betPlaced) return;
@@ -44,6 +77,8 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
     onBet?.(oracleId, selected, amount);
     setBetPlaced(true);
     setShowAmountPicker(false);
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 900);
   };
 
   const handleQuickBet = (optionId: string, amt: number) => {
@@ -55,6 +90,8 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
     onBet?.(oracleId, optionId, amt);
     setBetPlaced(true);
     setShowAmountPicker(false);
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 900);
   };
 
   const selectedOption = options.find((o) => o.id === selected);
@@ -63,18 +100,21 @@ export default function BettingButtons({ options, oracleId, onBet }: Props) {
 
   if (betPlaced) {
     return (
-      <div className="animate-scale-in rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-slate-400">예언 완료</p>
-            <p className="text-sm font-bold text-emerald-400">{selectedOption?.label}</p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-xs text-slate-500">{amount}P 배팅</p>
-            <p className="text-xs font-bold text-oracle-glow">+{expectedProfit}P 예상</p>
+      <div className="relative overflow-visible">
+        {showConfetti && <ConfettiBurst />}
+        <div className="animate-scale-in rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-400">예언 완료 🎉</p>
+              <p className="text-sm font-bold text-emerald-400">{selectedOption?.label}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-xs text-slate-500">{amount}P 배팅</p>
+              <p className="text-xs font-bold text-oracle-glow">+{expectedProfit}P 예상</p>
+            </div>
           </div>
         </div>
       </div>

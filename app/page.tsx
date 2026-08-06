@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield, Star, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Oracle } from "@/lib/types";
 import { useOracles, useUser } from "@/lib/context";
@@ -158,6 +158,21 @@ export default function OraclePage() {
   );
 }
 
+function useCountUp(target: number, duration = 1200) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const step = target / (duration / 16);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { setCount(target); clearInterval(timer); }
+      else setCount(Math.floor(start));
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  return count;
+}
+
 function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
   oracles: Oracle[];
   hotOracles: Oracle[];
@@ -165,6 +180,8 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
   myPoints: number;
 }) {
   const activeOracles = oracles.filter(o => o.isNew).length;
+  const participantTarget = 12847 + activeOracles * 23;
+  const liveCount = useCountUp(participantTarget, 1500);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -196,8 +213,8 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
 
           <p className="text-sm text-purple-200">
             지금{" "}
-            <span className="font-black text-white text-glow">
-              {(12847 + activeOracles * 23).toLocaleString()}명
+            <span className="font-black text-white text-glow tabular-nums">
+              {liveCount.toLocaleString()}명
             </span>
             이 예언 중
           </p>
@@ -221,6 +238,10 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
       </div>
 
       <GradeCard points={myPoints} />
+
+      {/* Category quick-access */}
+      <CategoryChips />
+
       <QuickBetStrip oracles={[...hotOracles, ...trendingOracles].slice(0, 6)} />
 
       {/* Hot oracles section */}
@@ -231,17 +252,62 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
               <Flame className="w-4 h-4 text-oracle-hot" />
               <h2 className="text-sm font-bold text-white">지금 핫한 예언</h2>
             </div>
-            <span className="text-xs text-slate-500">{hotOracles.length}개</span>
+            <span className="text-xs text-slate-500 flex items-center gap-1">
+              {hotOracles.length}개
+            </span>
           </div>
           <div className="space-y-3">
-            {hotOracles.map((oracle) => (
+            {hotOracles.slice(0, 3).map((oracle) => (
               <OracleCard key={oracle.id} oracle={oracle} />
             ))}
           </div>
+          {hotOracles.length > 3 && (
+            <button
+              className="w-full py-2.5 rounded-xl border border-oracle-border text-xs font-semibold text-slate-400 hover:text-white hover:border-oracle-purple/50 hover:bg-oracle-purple/5 transition-all"
+              onClick={() => {/* handled by tab switch - just show all via community */}}
+            >
+              HOT 예언 {hotOracles.length - 3}개 더 보기 →
+            </button>
+          )}
         </div>
       )}
 
       <RecommendationPanel oracles={oracles} />
+    </div>
+  );
+}
+
+const CATEGORY_CHIPS = [
+  { name: "경제/주식",    emoji: "📈" },
+  { name: "스포츠",       emoji: "⚽" },
+  { name: "정치",         emoji: "🏛️" },
+  { name: "엔터테인먼트", emoji: "🎵" },
+  { name: "기술/AI",      emoji: "🤖" },
+  { name: "날씨/자연",    emoji: "🌤️" },
+  { name: "사회/문화",    emoji: "🌏" },
+];
+
+function CategoryChips() {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">카테고리</h2>
+        <Link href="/" className="text-[11px] text-oracle-purple hover:text-oracle-glow transition-colors flex items-center gap-0.5">
+          전체 <ChevronRight className="w-3 h-3" />
+        </Link>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-0.5 px-0.5">
+        {CATEGORY_CHIPS.map((cat) => (
+          <Link
+            key={cat.name}
+            href={`/category/${encodeURIComponent(cat.name)}`}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-oracle-border bg-oracle-card text-slate-400 hover:text-white hover:border-oracle-purple/40 hover:bg-oracle-purple/10 transition-all"
+          >
+            <span>{cat.emoji}</span>
+            <span>{cat.name}</span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

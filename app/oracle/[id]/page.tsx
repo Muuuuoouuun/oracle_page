@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Users, Coins, Clock, MessageCircle,
-  Flame, TrendingUp, Sparkles, Send
+  Flame, TrendingUp, Sparkles, Send, Heart, Share2, Check,
 } from "lucide-react";
 import { useOracles, useUser } from "@/lib/context";
 import { GradeId } from "@/lib/grades";
@@ -23,32 +23,51 @@ function formatTimeLeft(date: Date): string {
   return `${Math.floor(hours / 24)}일 ${hours % 24}시간 남음`;
 }
 
-/* ── BetChart (CSS-only donut-like bar chart) ── */
+/* ── Stacked BetChart ── */
+const CHART_COLORS = [
+  { bar: "from-oracle-purple to-oracle-glow",  dot: "bg-oracle-purple", label: "text-oracle-glow" },
+  { bar: "from-oracle-hot to-orange-400",       dot: "bg-oracle-hot",    label: "text-oracle-hot" },
+  { bar: "from-emerald-500 to-teal-400",        dot: "bg-emerald-500",   label: "text-emerald-400" },
+  { bar: "from-blue-500 to-cyan-400",           dot: "bg-blue-500",      label: "text-blue-400" },
+];
+
 function BetChart({ options }: { options: { label: string; percentage: number; totalBets: number }[] }) {
-  const colors = ["from-oracle-purple to-oracle-glow", "from-oracle-hot to-orange-400", "from-emerald-500 to-teal-400", "from-blue-500 to-cyan-400"];
   return (
-    <div className="space-y-3">
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">배팅 현황</p>
+    <div className="space-y-4">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">배팅 현황</p>
+
       {/* Stacked bar */}
-      <div className="flex h-4 rounded-full overflow-hidden gap-0.5">
+      <div className="flex h-5 rounded-xl overflow-hidden gap-0.5">
         {options.map((opt, i) => (
           <div
             key={opt.label}
-            className={clsx("h-full bg-gradient-to-r transition-all duration-700", colors[i % colors.length])}
+            className={clsx("h-full bg-gradient-to-r transition-all duration-700 relative", CHART_COLORS[i % CHART_COLORS.length].bar)}
             style={{ width: `${opt.percentage}%` }}
           />
         ))}
       </div>
-      {/* Legend */}
-      <div className="space-y-2">
-        {options.map((opt, i) => (
-          <div key={opt.label} className="flex items-center gap-2">
-            <div className={clsx("w-3 h-3 rounded-full bg-gradient-to-r shrink-0", colors[i % colors.length])} />
-            <span className="text-sm text-slate-300 flex-1">{opt.label}</span>
-            <span className="text-sm font-bold text-white">{opt.percentage}%</span>
-            <span className="text-xs text-slate-500">{opt.totalBets.toLocaleString()}명</span>
-          </div>
-        ))}
+
+      {/* Legend with individual bars */}
+      <div className="space-y-3">
+        {options.map((opt, i) => {
+          const c = CHART_COLORS[i % CHART_COLORS.length];
+          return (
+            <div key={opt.label} className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className={clsx("w-2.5 h-2.5 rounded-full shrink-0", c.dot)} />
+                <span className="text-sm text-slate-200 flex-1 font-medium">{opt.label}</span>
+                <span className={clsx("text-sm font-black", c.label)}>{opt.percentage}%</span>
+                <span className="text-xs text-slate-500 w-16 text-right">{opt.totalBets.toLocaleString()}명</span>
+              </div>
+              <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden ml-4">
+                <div
+                  className={clsx("h-full rounded-full bg-gradient-to-r transition-all duration-700", c.bar)}
+                  style={{ width: `${opt.percentage}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -67,9 +86,9 @@ interface CommentData {
 }
 
 const SEED_COMMENTS: CommentData[] = [
-  { id: "c1", author: "오라클마스터", avatar: "🔮", gradeId: "arceus", text: "이건 99% 확률이지. 무조건 참여!", likes: 45, liked: false, createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
-  { id: "c2", author: "현실주의자", avatar: "🧐", gradeId: "mewtwo", text: "변수가 너무 많아서 쉽게 판단하기 어렵네요. 신중하게 참여합니다.", likes: 23, liked: false, createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-  { id: "c3", author: "피카예언", avatar: "⚡", gradeId: "pikachu", text: "역시 커뮤니티의 예언이 맞을 것 같아요 👍", likes: 12, liked: false, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
+  { id: "c1", author: "오라클마스터", avatar: "🔮", gradeId: "arceus",  text: "이건 99% 확률이지. 무조건 참여!", likes: 45, liked: false, createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
+  { id: "c2", author: "현실주의자",   avatar: "🧐", gradeId: "mewtwo",  text: "변수가 너무 많아서 쉽게 판단하기 어렵네요. 신중하게 참여합니다.", likes: 23, liked: false, createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+  { id: "c3", author: "피카예언",     avatar: "⚡", gradeId: "pikachu", text: "역시 커뮤니티의 예언이 맞을 것 같아요 👍", likes: 12, liked: false, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
 ];
 
 function timeAgo(d: Date) {
@@ -95,19 +114,16 @@ function CommentSection({ oracleId }: { oracleId: string }) {
 
   const handleSubmit = () => {
     if (!input.trim()) return;
-    setComments((prev) => [
-      {
-        id: `c-${Date.now()}`,
-        author: me.name,
-        avatar: me.avatar,
-        gradeId: me.gradeId,
-        text: input.trim(),
-        likes: 0,
-        liked: false,
-        createdAt: new Date(),
-      },
-      ...prev,
-    ]);
+    setComments((prev) => [{
+      id: `c-${Date.now()}`,
+      author: me.name,
+      avatar: me.avatar,
+      gradeId: me.gradeId,
+      text: input.trim(),
+      likes: 0,
+      liked: false,
+      createdAt: new Date(),
+    }, ...prev]);
     setInput("");
   };
 
@@ -123,14 +139,16 @@ function CommentSection({ oracleId }: { oracleId: string }) {
           <MessageCircle className="w-4 h-4 text-oracle-purple" />
           댓글 {comments.length}개
         </h3>
-        <div className="flex gap-1">
+        <div className="flex gap-1 p-0.5 bg-slate-900/60 rounded-lg">
           {(["popular", "latest"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSort(s)}
               className={clsx(
-                "text-xs px-2.5 py-1 rounded-lg border transition-all",
-                sort === s ? "bg-oracle-purple/20 border-oracle-purple/50 text-oracle-purple" : "border-slate-700 text-slate-500"
+                "text-xs px-2.5 py-1 rounded-md border transition-all font-medium",
+                sort === s
+                  ? "bg-oracle-purple/25 border-oracle-purple/50 text-oracle-purple"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
               )}
             >
               {s === "popular" ? "인기순" : "최신순"}
@@ -140,9 +158,9 @@ function CommentSection({ oracleId }: { oracleId: string }) {
       </div>
 
       {/* Input */}
-      <div className="flex gap-2 items-end">
-        <span className="text-xl shrink-0">{me.avatar}</span>
-        <div className="flex-1 bg-slate-800 border border-slate-700 rounded-xl p-3 focus-within:border-oracle-purple transition-colors">
+      <div className="flex gap-3 items-start">
+        <span className="text-xl shrink-0 mt-1">{me.avatar}</span>
+        <div className="flex-1 bg-oracle-card border border-oracle-border rounded-xl p-3 focus-within:border-oracle-purple focus-within:shadow-glow-sm transition-all">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -155,7 +173,7 @@ function CommentSection({ oracleId }: { oracleId: string }) {
             <button
               onClick={handleSubmit}
               disabled={!input.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-oracle-purple text-white text-xs font-bold disabled:opacity-40 hover:bg-oracle-violet transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-oracle-purple to-oracle-glow text-white text-xs font-bold disabled:opacity-40 hover:opacity-90 transition-all active:scale-95"
             >
               <Send className="w-3 h-3" /> 등록
             </button>
@@ -166,23 +184,26 @@ function CommentSection({ oracleId }: { oracleId: string }) {
       {/* Comment list */}
       <div className="space-y-3">
         {sorted.map((c) => (
-          <div key={c.id} className="flex gap-3">
-            <span className="text-xl shrink-0">{c.avatar}</span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
+          <div key={c.id} className="flex gap-3 group/comment">
+            <span className="text-xl shrink-0 mt-0.5">{c.avatar}</span>
+            <div className="flex-1 min-w-0 bg-slate-800/40 rounded-xl p-3 border border-slate-700/40 group-hover/comment:border-slate-600/60 transition-colors">
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
                 <span className="text-sm font-bold text-white">{c.author}</span>
                 <GradeBadge gradeId={c.gradeId} size="xs" />
-                <span className="text-xs text-slate-600">{timeAgo(c.createdAt)}</span>
+                <span className="text-xs text-slate-600 ml-auto">{timeAgo(c.createdAt)}</span>
               </div>
-              <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
+              <p className="text-sm text-slate-300 leading-relaxed">{c.text}</p>
               <button
                 onClick={() => handleLike(c.id)}
                 className={clsx(
-                  "flex items-center gap-1 mt-1.5 text-xs transition-colors",
-                  c.liked ? "text-oracle-hot" : "text-slate-500 hover:text-slate-300"
+                  "flex items-center gap-1 mt-2 text-xs transition-all rounded-full px-2 py-0.5",
+                  c.liked
+                    ? "text-oracle-hot bg-oracle-hot/10"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"
                 )}
               >
-                {c.liked ? "❤️" : "🤍"} {c.likes}
+                <Heart className={clsx("w-3 h-3", c.liked && "fill-current")} />
+                {c.likes}
               </button>
             </div>
           </div>
@@ -197,17 +218,28 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const { oracles } = useOracles();
   const { me, myBets, placeBet } = useUser();
+  const [copied, setCopied] = useState(false);
 
   const oracle = oracles.find((o) => o.id === id);
   if (!oracle) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-4">
+      <div className="max-w-2xl mx-auto px-4 py-20 text-center space-y-4">
         <p className="text-5xl">🔮</p>
-        <p className="text-white font-bold">예언을 찾을 수 없어요</p>
-        <Link href="/" className="text-oracle-purple text-sm">← 돌아가기</Link>
+        <p className="text-white font-bold text-lg">예언을 찾을 수 없어요</p>
+        <Link href="/" className="text-oracle-purple text-sm hover:text-oracle-glow transition-colors">
+          ← 홈으로 돌아가기
+        </Link>
       </div>
     );
   }
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/oracle/${oracle.id}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: oracle.title, url }); }
+      else { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    } catch {}
+  };
 
   const myBet = myBets.find((b) => b.oracleId === id);
   const isUrgent = oracle.endsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
@@ -220,50 +252,74 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
-      {/* Back nav */}
-      <div className="sticky top-0 z-10 bg-oracle-dark/80 backdrop-blur-md border-b border-oracle-border px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center text-slate-400 hover:text-white">
+      {/* Sticky nav */}
+      <div className="sticky top-0 z-10 bg-oracle-dark/85 backdrop-blur-xl border-b border-oracle-border/60 px-4 py-3 flex items-center gap-3">
+        <Link href="/" className="w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center text-slate-400 hover:text-white hover:border-oracle-border/80 transition-all">
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-slate-500">{oracle.category}</p>
+          <p className="text-[11px] text-slate-500 font-medium">{oracle.category}</p>
           <p className="text-sm font-bold text-white truncate">{oracle.title}</p>
         </div>
+        <button
+          onClick={handleShare}
+          className={clsx(
+            "w-8 h-8 rounded-full bg-oracle-card border border-oracle-border flex items-center justify-center transition-all",
+            copied ? "text-emerald-400 border-emerald-500/40" : "text-slate-400 hover:text-white hover:border-oracle-border/80"
+          )}
+        >
+          {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+        </button>
       </div>
 
-      <div className="px-4 py-5 space-y-6">
+      <div className="px-4 py-5 space-y-5 animate-fade-in">
         {/* Header */}
         <div className="space-y-3">
           <div className="flex items-start gap-2 flex-wrap">
             <TrendingBadge isHot={oracle.isHot} isTrending={oracle.isTrending} isNew={oracle.isNew} isLive={oracle.status === "live"} />
           </div>
-          <h1 className="text-xl font-black text-white leading-snug">{oracle.title}</h1>
+          <h1 className="text-2xl font-black text-white leading-snug">{oracle.title}</h1>
           <p className="text-sm text-slate-400 leading-relaxed">{oracle.description}</p>
 
-          {/* Meta */}
-          <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
-            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{oracle.totalParticipants.toLocaleString()}명 참여</span>
-            <span className="flex items-center gap-1"><Coins className="w-3.5 h-3.5 text-oracle-trending" />{oracle.totalPool.toLocaleString()}P 풀</span>
-            <span className={clsx("flex items-center gap-1", isUrgent && "text-oracle-hot font-bold")}>
-              <Clock className="w-3.5 h-3.5" />{formatTimeLeft(oracle.endsAt)}
+          {/* Meta chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/60 rounded-full px-3 py-1 text-xs text-slate-300">
+              <Users className="w-3.5 h-3.5" />
+              {oracle.totalParticipants.toLocaleString()}명 참여
             </span>
-            <span className="text-oracle-purple/70">by {oracle.creatorName}</span>
+            <span className="flex items-center gap-1.5 bg-oracle-trending/10 border border-oracle-trending/25 rounded-full px-3 py-1 text-xs font-semibold text-oracle-trending">
+              <Coins className="w-3.5 h-3.5" />
+              {oracle.totalPool.toLocaleString()}P 풀
+            </span>
+            <span className={clsx(
+              "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border",
+              isUrgent
+                ? "bg-oracle-hot/10 border-oracle-hot/30 text-oracle-hot"
+                : "bg-slate-800/60 border-slate-700/60 text-slate-400"
+            )}>
+              <Clock className={clsx("w-3.5 h-3.5", isUrgent && "animate-pulse")} />
+              {formatTimeLeft(oracle.endsAt)}
+            </span>
+            <span className="ml-auto text-xs text-slate-500">by {oracle.creatorName}</span>
           </div>
         </div>
 
         {/* Chart */}
-        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4">
+        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-5">
           <BetChart options={oracle.options} />
         </div>
 
         {/* Betting */}
-        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
+        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-5 space-y-4">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-oracle-glow" />
-            {oracle.status === "closed" ? "예언 종료" : "예언 참여하기"}
+            {oracle.status === "closed" ? "예언 종료됨" : "예언 참여하기"}
           </h2>
           {oracle.status === "closed" ? (
-            <p className="text-sm text-slate-400 text-center py-4">이 예언은 종료되었습니다.</p>
+            <div className="py-6 text-center space-y-2">
+              <p className="text-3xl">🔒</p>
+              <p className="text-sm text-slate-400">이 예언은 종료되었습니다</p>
+            </div>
           ) : (
             <BettingButtons options={oracle.options} oracleId={oracle.id} onBet={handleBet} />
           )}
@@ -273,7 +329,10 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
         {oracle.tags.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {oracle.tags.map((tag) => (
-              <span key={tag} className="text-xs text-oracle-purple/70 border border-oracle-purple/20 rounded-full px-2.5 py-1">
+              <span
+                key={tag}
+                className="text-xs text-oracle-purple/80 border border-oracle-purple/25 rounded-full px-3 py-1 bg-oracle-purple/5 hover:bg-oracle-purple/15 hover:border-oracle-purple/50 transition-all cursor-pointer"
+              >
                 #{tag}
               </span>
             ))}
@@ -281,21 +340,29 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
         )}
 
         {/* Comments */}
-        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4">
+        <div className="rounded-2xl border border-oracle-border bg-oracle-card p-5">
           <CommentSection oracleId={id} />
         </div>
 
-        {/* Related */}
+        {/* Related oracles */}
         {relatedOracles.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-white">비슷한 예언</h3>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Flame className="w-4 h-4 text-oracle-hot" />
+              비슷한 예언
+            </h3>
             {relatedOracles.map((o) => (
-              <Link key={o.id} href={`/oracle/${o.id}`} className="block rounded-xl border border-oracle-border bg-oracle-card p-3 hover:border-oracle-purple/50 transition-colors">
-                <p className="text-sm font-medium text-white line-clamp-1">{o.title}</p>
-                <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                  <span><Users className="w-3 h-3 inline mr-0.5" />{o.totalParticipants.toLocaleString()}명</span>
+              <Link
+                key={o.id}
+                href={`/oracle/${o.id}`}
+                className="block rounded-xl border border-oracle-border bg-oracle-card p-4 hover:border-oracle-purple/50 hover:shadow-oracle transition-all group card-hover"
+              >
+                <p className="text-sm font-semibold text-white line-clamp-1 group-hover:text-oracle-glow transition-colors">{o.title}</p>
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
+                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{o.totalParticipants.toLocaleString()}명</span>
                   {o.isHot && <Flame className="w-3 h-3 text-oracle-hot" />}
                   {o.isTrending && <TrendingUp className="w-3 h-3 text-oracle-trending" />}
+                  <span className="ml-auto text-oracle-purple font-medium">상세 보기 →</span>
                 </div>
               </Link>
             ))}
