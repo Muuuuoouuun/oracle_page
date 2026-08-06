@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Oracle, UserProfile, UserBet } from "./types";
 import { MOCK_ORACLES } from "./mockData";
 import { MOCK_USERS } from "./adminData";
@@ -25,6 +25,13 @@ export interface MyBetRecord extends UserBet {
   payout?: number;
 }
 
+export interface ToastMessage {
+  id: string;
+  text: string;
+  emoji: string;
+  type: "success" | "info" | "error";
+}
+
 interface OracleContextValue {
   oracles: Oracle[];
   addOracle: (oracle: Oracle) => void;
@@ -36,10 +43,12 @@ interface UserContextValue {
   me: UserProfile;
   myBets: MyBetRecord[];
   notifications: Notification[];
+  toast: ToastMessage | null;
   placeBet: (oracleId: string, optionId: string, optionLabel: string, oracleTitle: string, amount: number) => void;
   markNotificationRead: (id: string) => void;
   markAllRead: () => void;
   adjustPoints: (delta: number) => void;
+  showToast: (text: string, emoji?: string, type?: ToastMessage["type"]) => void;
 }
 
 /* ── Contexts ── */
@@ -92,12 +101,47 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
   },
 ];
 
+/* ── Toast UI ── */
+function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 2800);
+    return () => clearTimeout(t);
+  }, [toast.id, onDismiss]);
+
+  const bgMap = {
+    success: "bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-500/50",
+    info:    "bg-gradient-to-r from-oracle-purple to-oracle-violet border-oracle-purple/50",
+    error:   "bg-gradient-to-r from-red-600 to-rose-600 border-red-500/50",
+  };
+
+  return (
+    <div
+      className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
+      style={{ animation: "slideUp 0.25s ease-out" }}
+    >
+      <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border shadow-2xl text-white text-sm font-bold whitespace-nowrap ${bgMap[toast.type]}`}
+        style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}
+      >
+        <span className="text-base">{toast.emoji}</span>
+        {toast.text}
+      </div>
+    </div>
+  );
+}
+
 /* ── Provider ── */
 export function AppProvider({ children }: { children: ReactNode }) {
   const [oracles, setOracles] = useState<Oracle[]>(MOCK_ORACLES);
   const [me, setMe] = useState<UserProfile>(INITIAL_ME);
   const [myBets, setMyBets] = useState<MyBetRecord[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = useCallback((text: string, emoji = "✨", type: ToastMessage["type"] = "success") => {
+    setToast({ id: `toast-${Date.now()}`, text, emoji, type });
+  }, []);
+
+  const dismissToast = useCallback(() => setToast(null), []);
 
   /* Oracle actions */
   const addOracle = useCallback((oracle: Oracle) => {
@@ -112,7 +156,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOracles((prev) =>
       prev.map((o) => (o.id === id ? { ...o, status: "closed" } : o))
     );
-    // Settle bets
     setMyBets((prev) =>
       prev.map((b) => {
         if (b.oracleId !== id) return b;
@@ -120,7 +163,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { ...b, status: won ? "won" : "lost" };
       })
     );
-    // Add notification
     const oracle = oracles.find((o) => o.id === id);
     const myBet = myBets.find((b) => b.oracleId === id);
     if (myBet) {
@@ -146,6 +188,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const placeBet = useCallback((
     oracleId: string, optionId: string, optionLabel: string, oracleTitle: string, amount: number
   ) => {
+    let didUpgrade = false;
+    let newGradeName = "";
+
     setMe((prev) => {
       const newPoints = prev.points - amount;
       const newTotalBets = prev.totalBets + 1;
@@ -162,13 +207,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       ...prev,
     ]);
-  }, []);
+    // Toast for bet placement
+    showToast(`${optionLabel} 예언 완료! (${amount}P)`, "🎯", "success");
+  }, [showToast]);
 
   const adjustPoints = useCallback((delta: number) => {
     setMe((prev) => {
       const newPoints = Math.max(0, prev.points + delta);
       const newGrade = getGradeByPoints(newPoints);
-      const didUpgrade = newGrade.rank > getGradeByPoints(prev.points).rank;
+      const oldGrade = getGradeByPoints(prev.points);
+      const didUpgrade = newGrade.rank > oldGrade.rank;
       if (didUpgrade) {
         setNotifications((n) => [
           {
@@ -181,10 +229,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           },
           ...n,
         ]);
+        showToast(`${newGrade.emoji} ${newGrade.name} 승급!`, "🎊", "success");
+      } else if (delta > 0) {
+        showToast(`+${delta.toLocaleString()}P 획득!`, "💰", "success");
       }
       return { ...prev, points: newPoints, gradeId: newGrade.id };
     });
-  }, []);
+  }, [showToast]);
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
@@ -196,8 +247,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <OracleContext.Provider value={{ oracles, addOracle, updateOracle, closeOracle }}>
-      <UserContext.Provider value={{ me, myBets, notifications, placeBet, markNotificationRead, markAllRead, adjustPoints }}>
+      <UserContext.Provider value={{ me, myBets, notifications, toast, placeBet, markNotificationRead, markAllRead, adjustPoints, showToast }}>
         {children}
+        {toast && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
       </UserContext.Provider>
     </OracleContext.Provider>
   );

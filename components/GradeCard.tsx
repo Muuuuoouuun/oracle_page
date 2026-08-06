@@ -2,7 +2,7 @@
 
 import { Grade, GRADES, getNextGradeProgress } from "@/lib/grades";
 import clsx from "clsx";
-import { Shield, Star, ChevronRight, Trophy, Zap } from "lucide-react";
+import { Shield, Star, ChevronRight, Trophy, Zap, Flame } from "lucide-react";
 
 interface Props {
   points: number;
@@ -85,6 +85,12 @@ export default function GradeCard({ points, showAll = false }: Props) {
             <span className="font-bold text-white">{pointsNeeded.toLocaleString()}P</span>{" "}
             더 모으면 <span className={clsx("font-semibold", current.color)}>승급!</span>
           </p>
+          {progress >= 80 && (
+            <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-oracle-hot/10 border border-oracle-hot/25 text-xs font-bold text-oracle-hot w-fit animate-pulse-slow">
+              <Flame className="w-3.5 h-3.5" />
+              승급 {100 - progress}% 남았어요! 파이팅!
+            </div>
+          )}
         </div>
       ) : (
         <div className="relative flex items-center justify-center gap-2 py-2">

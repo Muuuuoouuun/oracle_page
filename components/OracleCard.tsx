@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp, ExternalLink, Share2, Check, Flame, TrendingUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Oracle } from "@/lib/types";
+import { useUser } from "@/lib/context";
 import TrendingBadge from "./TrendingBadge";
 import BettingButtons from "./BettingButtons";
 import clsx from "clsx";
@@ -44,15 +45,18 @@ const OPTION_GRADIENTS = [
 export default function OracleCard({ oracle, compact = false }: Props) {
   const [expanded, setExpanded] = useState(!compact);
   const [copied, setCopied] = useState(false);
+  const { showToast } = useUser();
 
   const handleShare = async () => {
     const url = `${window.location.origin}/oracle/${oracle.id}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: oracle.title, url });
+        showToast("공유 완료!", "🔗", "info");
       } else {
         await navigator.clipboard.writeText(url);
         setCopied(true);
+        showToast("링크가 복사되었어요!", "🔗", "info");
         setTimeout(() => setCopied(false), 2000);
       }
     } catch {}
