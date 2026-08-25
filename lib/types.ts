@@ -39,6 +39,8 @@ export interface Oracle {
   commentCount: number;
   creatorName: string;
   creatorAvatar: string;
+  /** 종료된 예언의 정답 옵션 id. status === "closed" 일 때만 설정됨. */
+  winningOptionId?: string;
 }
 
 export interface UserProfile {
@@ -70,8 +72,11 @@ export interface Comment {
   oracleId: string;
   author: string;
   avatar: string;
+  gradeId: GradeId;
   text: string;
   likes: number;
+  /** 내가 좋아요를 눌렀는지 */
+  likedByMe: boolean;
   createdAt: Date;
 }
 

@@ -1,16 +1,16 @@
 "use client";
 
-import { use, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Users, Coins, Clock, MessageCircle,
   Flame, TrendingUp, Sparkles, Send
 } from "lucide-react";
-import { useOracles, useUser } from "@/lib/context";
-import { getGradeById } from "@/lib/grades";
+import { useComments, useOracles, useUser } from "@/lib/context";
 import BettingButtons from "@/components/BettingButtons";
 import TrendingBadge from "@/components/TrendingBadge";
 import GradeBadge from "@/components/GradeBadge";
+import OracleResult from "@/components/OracleResult";
 import clsx from "clsx";
 
 function formatTimeLeft(date: Date): string {
@@ -55,23 +55,6 @@ function BetChart({ options }: { options: { label: string; percentage: number; t
 }
 
 /* ── Comment Section ── */
-interface CommentData {
-  id: string;
-  author: string;
-  avatar: string;
-  gradeId: string;
-  text: string;
-  likes: number;
-  liked: boolean;
-  createdAt: Date;
-}
-
-const SEED_COMMENTS: CommentData[] = [
-  { id: "c1", author: "오라클마스터", avatar: "🔮", gradeId: "arceus", text: "이건 99% 확률이지. 무조건 참여!", likes: 45, liked: false, createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
-  { id: "c2", author: "현실주의자", avatar: "🧐", gradeId: "mewtwo", text: "변수가 너무 많아서 쉽게 판단하기 어렵네요. 신중하게 참여합니다.", likes: 23, liked: false, createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-  { id: "c3", author: "피카예언", avatar: "⚡", gradeId: "pikachu", text: "역시 커뮤니티의 예언이 맞을 것 같아요 👍", likes: 12, liked: false, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
-];
-
 function timeAgo(d: Date) {
   const m = Math.floor((Date.now() - d.getTime()) / 60000);
   if (m < 1) return "방금";
@@ -83,36 +66,21 @@ function timeAgo(d: Date) {
 
 function CommentSection({ oracleId }: { oracleId: string }) {
   const { me } = useUser();
-  const [comments, setComments] = useState<CommentData[]>(SEED_COMMENTS);
+  const { commentsFor, addComment, toggleCommentLike } = useComments();
+  const comments = commentsFor(oracleId);
   const [input, setInput] = useState("");
   const [sort, setSort] = useState<"latest" | "popular">("popular");
 
-  const handleLike = (id: string) => {
-    setComments((prev) =>
-      prev.map((c) => c.id === id ? { ...c, liked: !c.liked, likes: c.liked ? c.likes - 1 : c.likes + 1 } : c)
-    );
-  };
-
   const handleSubmit = () => {
     if (!input.trim()) return;
-    setComments((prev) => [
-      {
-        id: `c-${Date.now()}`,
-        author: me.name,
-        avatar: me.avatar,
-        gradeId: me.gradeId,
-        text: input.trim(),
-        likes: 0,
-        liked: false,
-        createdAt: new Date(),
-      },
-      ...prev,
-    ]);
+    addComment(oracleId, input);
     setInput("");
   };
 
   const sorted = [...comments].sort((a, b) =>
-    sort === "popular" ? b.likes - a.likes : b.createdAt.getTime() - a.createdAt.getTime()
+    sort === "popular"
+      ? b.likes - a.likes
+      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return (
@@ -165,38 +133,44 @@ function CommentSection({ oracleId }: { oracleId: string }) {
 
       {/* Comment list */}
       <div className="space-y-3">
-        {sorted.map((c) => (
-          <div key={c.id} className="flex gap-3">
-            <span className="text-xl shrink-0">{c.avatar}</span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-sm font-bold text-white">{c.author}</span>
-                <GradeBadge gradeId={c.gradeId as any} size="xs" />
-                <span className="text-xs text-slate-600">{timeAgo(c.createdAt)}</span>
+        {sorted.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-6">
+            아직 댓글이 없어요. 첫 번째 예언가가 되어보세요!
+          </p>
+        ) : (
+          sorted.map((c) => (
+            <div key={c.id} className="flex gap-3">
+              <span className="text-xl shrink-0">{c.avatar}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-bold text-white">{c.author}</span>
+                  <GradeBadge gradeId={c.gradeId} size="xs" />
+                  <span className="text-xs text-slate-600">{timeAgo(new Date(c.createdAt))}</span>
+                </div>
+                <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
+                <button
+                  onClick={() => toggleCommentLike(c.id)}
+                  className={clsx(
+                    "flex items-center gap-1 mt-1.5 text-xs transition-colors",
+                    c.likedByMe ? "text-oracle-hot" : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  {c.likedByMe ? "❤️" : "🤍"} {c.likes}
+                </button>
               </div>
-              <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
-              <button
-                onClick={() => handleLike(c.id)}
-                className={clsx(
-                  "flex items-center gap-1 mt-1.5 text-xs transition-colors",
-                  c.liked ? "text-oracle-hot" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                {c.liked ? "❤️" : "🤍"} {c.likes}
-              </button>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 /* ── Page ── */
-export default function OracleDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// Next.js 14 에서 params 는 Promise 가 아닌 일반 객체다. (use(params) 는 15+ API)
+export default function OracleDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const { oracles } = useOracles();
-  const { me, myBets, placeBet } = useUser();
 
   const oracle = oracles.find((o) => o.id === id);
   if (!oracle) {
@@ -209,14 +183,13 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const myBet = myBets.find((b) => b.oracleId === id);
-  const isUrgent = oracle.endsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
+  const endsAt = new Date(oracle.endsAt);
+  const isUrgent = endsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   const relatedOracles = oracles.filter((o) => o.id !== id && o.category === oracle.category).slice(0, 3);
-
-  const handleBet = (oracleId: string, optionId: string, amount: number) => {
-    const opt = oracle.options.find((o) => o.id === optionId);
-    if (opt) placeBet(oracleId, optionId, opt.label, oracle.title, amount);
-  };
+  const isClosed = oracle.status === "closed";
+  const winningOption = oracle.winningOptionId
+    ? oracle.options.find((o) => o.id === oracle.winningOptionId)
+    : undefined;
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
@@ -245,11 +218,16 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
             <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{oracle.totalParticipants.toLocaleString()}명 참여</span>
             <span className="flex items-center gap-1"><Coins className="w-3.5 h-3.5 text-oracle-trending" />{oracle.totalPool.toLocaleString()}P 풀</span>
             <span className={clsx("flex items-center gap-1", isUrgent && "text-oracle-hot font-bold")}>
-              <Clock className="w-3.5 h-3.5" />{formatTimeLeft(oracle.endsAt)}
+              <Clock className="w-3.5 h-3.5" />{formatTimeLeft(endsAt)}
             </span>
             <span className="text-oracle-purple/70">by {oracle.creatorName}</span>
           </div>
         </div>
+
+        {/* Result (closed only) */}
+        {isClosed && winningOption && (
+          <OracleResult oracle={oracle} winningOption={winningOption} />
+        )}
 
         {/* Chart */}
         <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4">
@@ -260,12 +238,16 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
         <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-oracle-glow" />
-            {oracle.status === "closed" ? "예언 종료" : "예언 참여하기"}
+            {isClosed ? "예언 종료" : "예언 참여하기"}
           </h2>
-          {oracle.status === "closed" ? (
-            <p className="text-sm text-slate-400 text-center py-4">이 예언은 종료되었습니다.</p>
+          {isClosed ? (
+            <p className="text-sm text-slate-400 text-center py-4">
+              {winningOption
+                ? "이 예언은 정산이 완료되었습니다."
+                : "이 예언은 종료되었습니다."}
+            </p>
           ) : (
-            <BettingButtons options={oracle.options} oracleId={oracle.id} onBet={handleBet} />
+            <BettingButtons options={oracle.options} oracleId={oracle.id} />
           )}
         </div>
 

@@ -1,13 +1,11 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp, CheckCircle2, XCircle, Clock } from "lucide-react";
-import { useUser, useOracles } from "@/lib/context";
-import { MOCK_USERS } from "@/lib/adminData";
-import { getGradeByPoints, getNextGradeProgress } from "@/lib/grades";
+import { ME_ID, useGrades, useOracles, useUser } from "@/lib/context";
 import GradeBadge from "@/components/GradeBadge";
-import GradeCard, { GradeGrid } from "@/components/GradeCard";
+import { GradeGrid } from "@/components/GradeCard";
+import FollowButton from "@/components/FollowButton";
 import { UserProfile } from "@/lib/types";
 import clsx from "clsx";
 
@@ -24,16 +22,16 @@ function timeAgo(d: Date) {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const { me, myBets } = useUser();
+// Next.js 14 에서 params 는 Promise 가 아닌 일반 객체다. (use(params) 는 15+ API)
+export default function ProfilePage({ params }: { params: { id: string } }) {
+  const { id } = params;
+  const { me, users, myBets } = useUser();
   const { oracles } = useOracles();
+  const { gradeByPoints, nextGradeProgress } = useGrades();
 
   // Determine which user to show
-  const isMe = id === "me" || id === me.id;
-  const user: UserProfile | undefined = isMe
-    ? me
-    : MOCK_USERS.find((u) => u.id === id);
+  const isMe = id === ME_ID || id === me.id;
+  const user: UserProfile | undefined = isMe ? me : users.find((u) => u.id === id);
 
   if (!user) {
     return (
@@ -45,18 +43,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const grade = getGradeByPoints(user.points);
-  const { next, progress, pointsNeeded } = getNextGradeProgress(user.points);
-  const wonBets = isMe ? myBets.filter((b) => b.status === "won") : [];
-  const lostBets = isMe ? myBets.filter((b) => b.status === "lost") : [];
-  const pendingBets = isMe ? myBets.filter((b) => b.status === "pending") : [];
-  const accuracy = isMe
-    ? myBets.length > 0 ? Math.round((wonBets.length / myBets.filter(b => b.status !== "pending").length || 0) * 100) : 0
-    : user.accuracy;
-
-  const createdOracles = isMe
-    ? oracles.filter((o) => o.creatorName === me.name)
-    : oracles.filter((o) => o.creatorName === user.name);
+  const grade = gradeByPoints(user.points);
+  const { next, progress, pointsNeeded } = nextGradeProgress(user.points);
+  // 적중률/배팅 수는 정산 시점에 context 에서 갱신되므로 유저 객체를 그대로 신뢰한다.
+  const accuracy = user.accuracy;
+  const createdOracles = oracles.filter((o) => o.creatorName === user.name);
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
@@ -90,9 +81,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               <GradeBadge gradeId={grade.id} size="sm" showTitle isOverride={user.gradeOverride} />
               <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
                 <Calendar className="w-3 h-3" />
-                {formatDate(user.joinedAt)} 가입
+                {formatDate(new Date(user.joinedAt))} 가입
               </div>
             </div>
+            {!isMe && (
+              <FollowButton userId={user.id} userName={user.name} className="shrink-0" />
+            )}
           </div>
 
           {/* Stats grid */}
@@ -100,7 +94,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             {[
               { label: "포인트", value: `${user.points.toLocaleString()}P`, icon: <Coins className="w-3.5 h-3.5" />, color: "text-oracle-glow" },
               { label: "적중률", value: accuracy > 0 ? `${accuracy}%` : "—", icon: <Target className="w-3.5 h-3.5" />, color: "text-oracle-trending" },
-              { label: "총 배팅", value: `${isMe ? myBets.length : user.totalBets}건`, icon: <Trophy className="w-3.5 h-3.5" />, color: "text-purple-400" },
+              { label: "총 배팅", value: `${user.totalBets}건`, icon: <Trophy className="w-3.5 h-3.5" />, color: "text-purple-400" },
             ].map((s) => (
               <div key={s.label} className="text-center bg-slate-900/40 rounded-xl p-3">
                 <div className={clsx("flex justify-center mb-1", s.color)}>{s.icon}</div>
@@ -146,14 +140,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium line-clamp-1">{bet.oracleTitle}</p>
                     <p className="text-xs text-slate-500">
-                      {bet.optionLabel} · {bet.amount.toLocaleString()}P · {timeAgo(bet.placedAt)}
+                      {bet.optionLabel} · {bet.amount.toLocaleString()}P · {timeAgo(new Date(bet.placedAt))}
                     </p>
                   </div>
                   <span className={clsx(
                     "text-xs font-bold shrink-0",
                     bet.status === "won" ? "text-emerald-400" : bet.status === "lost" ? "text-oracle-hot" : "text-slate-500"
                   )}>
-                    {bet.status === "won" ? `+${bet.payout ?? bet.amount}P` : bet.status === "lost" ? `-${bet.amount}P` : "진행중"}
+                    {bet.status === "won"
+                      ? `+${(bet.payout ?? Math.floor(bet.amount * bet.odds)).toLocaleString()}P`
+                      : bet.status === "lost"
+                      ? `-${bet.amount.toLocaleString()}P`
+                      : "진행중"}
                   </span>
                 </div>
               ))}

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { X, Plus, Trash2, Eye, Sparkles, AlertCircle, ChevronDown } from "lucide-react";
 import { Oracle, OracleCategory, BetOption } from "@/lib/types";
-import { useOracles, useUser } from "@/lib/context";
-import { getGradeById } from "@/lib/grades";
+import { useGrades, useOracles, useUser } from "@/lib/context";
+import { dailyOracleLimit } from "@/lib/grades";
+import { recalcOptions } from "@/lib/betting";
 import OracleCard from "./OracleCard";
 import clsx from "clsx";
 
@@ -15,13 +16,16 @@ const CATEGORIES: OracleCategory[] = [
 interface Props { onClose: () => void }
 
 export default function CreateOracleModal({ onClose }: Props) {
-  const { addOracle } = useOracles();
+  const { addOracle, myOraclesToday } = useOracles();
   const { me } = useUser();
-  const grade = getGradeById(me.gradeId);
+  const { grades } = useGrades();
+  const grade = grades.find((g) => g.id === me.gradeId) ?? grades[0];
 
-  // Grade-based daily limit
-  const maxPerDay = grade.rank >= 4 ? Infinity : grade.rank >= 3 ? 10 : 3;
-  const canCreate = grade.rank >= 2; // 이상해씨 이상
+  // Grade-based daily limit (규칙은 lib/grades.ts 한 곳에서 관리)
+  const maxPerDay = dailyOracleLimit(grade.rank);
+  const canCreate = maxPerDay > 0; // 이상해씨(rank 2) 이상
+  const remainingToday = maxPerDay === Infinity ? Infinity : maxPerDay - myOraclesToday;
+  const reachedDailyLimit = remainingToday <= 0;
 
   const [step, setStep] = useState<"form" | "preview">("form");
   const [title, setTitle] = useState("");
@@ -65,14 +69,12 @@ export default function CreateOracleModal({ onClose }: Props) {
   };
 
   const handleSubmit = () => {
-    const total = options.length;
-    const betOptions: BetOption[] = options.map((o, i) => ({
-      id: o.id,
-      label: o.label,
-      percentage: Math.round(100 / total),
-      totalBets: 0,
-      odds: parseFloat((total * 0.9).toFixed(1)),
-    }));
+    // 미리보기 화면에서도 다시 들어올 수 있으므로 한도를 한 번 더 확인한다.
+    if (!canCreate || reachedDailyLimit) return;
+
+    const betOptions: BetOption[] = recalcOptions(
+      options.map((o) => ({ id: o.id, label: o.label, percentage: 0, totalBets: 0, odds: 1 }))
+    );
 
     const newOracle: Oracle = {
       id: `user-${Date.now()}`,
@@ -105,13 +107,15 @@ export default function CreateOracleModal({ onClose }: Props) {
     description: description || "예언 설명",
     category,
     status: "live",
-    options: options.map((o, i) => ({
-      id: o.id,
-      label: o.label || `옵션 ${i + 1}`,
-      percentage: Math.round(100 / options.length),
-      totalBets: 0,
-      odds: parseFloat((options.length * 0.9).toFixed(1)),
-    })),
+    options: recalcOptions(
+      options.map((o, i) => ({
+        id: o.id,
+        label: o.label || `옵션 ${i + 1}`,
+        percentage: 0,
+        totalBets: 0,
+        odds: 1,
+      }))
+    ),
     totalParticipants: 0,
     totalPool: 0,
     endsAt: new Date(Date.now() + daysUntilEnd * 24 * 60 * 60 * 1000),
@@ -138,7 +142,9 @@ export default function CreateOracleModal({ onClose }: Props) {
             <h2 className="text-base font-black text-white">새 예언 등록</h2>
             <p className="text-xs text-slate-500">
               {grade.emoji} {grade.name} 등급 ·{" "}
-              {maxPerDay === Infinity ? "무제한" : `일 ${maxPerDay}개`} 생성 가능
+              {maxPerDay === Infinity
+                ? "무제한 생성 가능"
+                : `오늘 ${myOraclesToday}/${maxPerDay}개 사용`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -169,6 +175,21 @@ export default function CreateOracleModal({ onClose }: Props) {
               <br />
               필요 포인트:{" "}
               <span className="font-bold text-emerald-400">{Math.max(0, 1000 - me.points).toLocaleString()}P 더</span>
+            </div>
+          </div>
+        ) : reachedDailyLimit ? (
+          /* Daily limit reached */
+          <div className="p-6 text-center space-y-3">
+            <div className="text-4xl">⏳</div>
+            <p className="text-white font-bold">오늘의 예언 생성 한도를 모두 사용했어요</p>
+            <p className="text-sm text-slate-400">
+              {grade.emoji} {grade.name} 등급은 하루에 {maxPerDay}개까지 생성할 수 있습니다.
+              <br />
+              내일 다시 도전하거나, 등급을 올려 한도를 늘려보세요!
+            </p>
+            <div className="rounded-xl bg-slate-800 p-3 text-xs text-slate-400">
+              오늘 생성한 예언:{" "}
+              <span className="font-bold text-white">{myOraclesToday}개</span>
             </div>
           </div>
         ) : step === "preview" ? (

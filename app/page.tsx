@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield } from "lucide-react";
 import Link from "next/link";
-import { useOracles, useUser } from "@/lib/context";
-import { getNextGradeProgress } from "@/lib/grades";
-import { HOT_ORACLES, TRENDING_ORACLES } from "@/lib/mockData";
+import { useGrades, useOracles, useUser } from "@/lib/context";
+import type { Oracle } from "@/lib/types";
 import CommunityFeed from "@/components/CommunityFeed";
 import QuickBetStrip from "@/components/QuickBetStrip";
 import RecommendationPanel from "@/components/RecommendationPanel";
@@ -22,11 +21,12 @@ type Tab = "홈" | "커뮤니티" | "랭킹";
 export default function OraclePage() {
   const { oracles } = useOracles();
   const { me, notifications } = useUser();
+  const { gradeByPoints } = useGrades();
   const [activeTab, setActiveTab] = useState<Tab>("홈");
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const { current: myGrade } = getNextGradeProgress(me.points);
+  const myGrade = gradeByPoints(me.points);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const hotOracles = oracles.filter((o) => o.isHot);
   const trendingOracles = oracles.filter((o) => o.isTrending);
@@ -124,11 +124,16 @@ export default function OraclePage() {
 }
 
 function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
-  oracles: typeof import("@/lib/types").Oracle[];
-  hotOracles: typeof import("@/lib/types").Oracle[];
-  trendingOracles: typeof import("@/lib/types").Oracle[];
+  oracles: Oracle[];
+  hotOracles: Oracle[];
+  trendingOracles: Oracle[];
   myPoints: number;
 }) {
+  const newOracles = [...oracles]
+    .filter((o) => o.isNew && o.status !== "closed")
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 3);
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl bg-gradient-to-r from-oracle-violet to-oracle-purple p-5 space-y-2 relative overflow-hidden">
@@ -165,6 +170,19 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
         ))}
       </div>
 
+      {/* 갓 올라온 예언 — 내가 방금 만든 예언도 여기서 바로 보인다 */}
+      {newOracles.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-oracle-glow" />
+            <h2 className="text-sm font-bold text-white">새로 올라온 예언</h2>
+          </div>
+          {newOracles.map((oracle) => (
+            <OracleCard key={oracle.id} oracle={oracle} />
+          ))}
+        </div>
+      )}
+
       <RecommendationPanel oracles={oracles} />
     </div>
   );
@@ -173,7 +191,6 @@ function HomeTab({ oracles, hotOracles, trendingOracles, myPoints }: {
 function RankingTab({ myPoints, myAccuracy, myBets }: {
   myPoints: number; myAccuracy: number; myBets: number;
 }) {
-  const { current: myGrade } = getNextGradeProgress(myPoints);
   return (
     <div className="space-y-4">
       <GradeCard points={myPoints} />

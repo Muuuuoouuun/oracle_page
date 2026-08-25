@@ -7,10 +7,10 @@ import {
   TrendingUp, Activity, Coins, UserCheck, Ban, ChevronDown,
   Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star
 } from "lucide-react";
-import { MOCK_USERS, ADMIN_STATS } from "@/lib/adminData";
-import { useOracles, useUser } from "@/lib/context";
-import { GRADES, GradeId, getGradeByPoints, getGradeById } from "@/lib/grades";
-import { UserProfile, Oracle } from "@/lib/types";
+import { ADMIN_STATS } from "@/lib/adminData";
+import { useGrades, useOracles, useUser } from "@/lib/context";
+import type { GradeId, GradeThresholds } from "@/lib/grades";
+import type { OracleStatus, UserProfile } from "@/lib/types";
 import GradeBadge from "@/components/GradeBadge";
 import OracleResult from "@/components/OracleResult";
 import clsx from "clsx";
@@ -83,6 +83,8 @@ function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
 /*  Dashboard Tab                         */
 /* ────────────────────────────────────── */
 function DashboardTab() {
+  const { users } = useUser();
+  const { grades, gradeByPoints } = useGrades();
   const stats = ADMIN_STATS;
   const cards = [
     { label: "총 사용자", value: stats.totalUsers.toLocaleString(), sub: `오늘 활성: ${stats.activeToday.toLocaleString()}명`, icon: <Users className="w-5 h-5" />, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
@@ -93,11 +95,16 @@ function DashboardTab() {
     { label: "평균 적중률", value: `${stats.avgAccuracy}%`, sub: "전체 유저", icon: <TrendingUp className="w-5 h-5" />, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
   ];
 
-  // Grade distribution
-  const gradeDistribution = GRADES.map((g) => ({
-    grade: g,
-    count: MOCK_USERS.filter((u) => getGradeByPoints(u.points).id === g.id && !u.isBanned).length,
-  }));
+  // Grade distribution — 높은 등급이 위로 오도록 rank 내림차순
+  const activeUsers = users.filter((u) => !u.isBanned);
+  const gradeDistribution = [...grades]
+    .sort((a, b) => b.rank - a.rank)
+    .map((g) => ({
+      grade: g,
+      count: activeUsers.filter((u) => gradeByPoints(u.points).id === g.id).length,
+    }));
+  // 막대는 가장 인원이 많은 등급을 100% 로 두고 상대 비교한다.
+  const maxCount = Math.max(1, ...gradeDistribution.map((d) => d.count));
 
   return (
     <div className="space-y-6">
@@ -120,7 +127,7 @@ function DashboardTab() {
           <Star className="w-4 h-4 text-oracle-trending" /> 등급 분포
         </h3>
         <div className="space-y-2">
-          {gradeDistribution.reverse().map(({ grade, count }) => (
+          {gradeDistribution.map(({ grade, count }) => (
             <div key={grade.id} className="flex items-center gap-2">
               <span className="text-base w-6 text-center">{grade.emoji}</span>
               <span className={clsx("text-xs font-medium w-16", grade.color)}>{grade.name}</span>
@@ -128,7 +135,7 @@ function DashboardTab() {
                 <div
                   className="h-full rounded-full"
                   style={{
-                    width: `${Math.min(100, (count / MOCK_USERS.length) * 100 * 3)}%`,
+                    width: `${(count / maxCount) * 100}%`,
                     backgroundColor: grade.glowColor,
                   }}
                 />
@@ -146,7 +153,9 @@ function DashboardTab() {
 /*  User Management Tab                   */
 /* ────────────────────────────────────── */
 function UserManagementTab() {
-  const [users, setUsers] = useState<UserProfile[]>(MOCK_USERS);
+  // 유저 목록은 전역 상태를 그대로 쓴다. 여기서 수정하면 로그인한 "나"에게도 실제로 반영된다.
+  const { users, updateUser, toggleBan } = useUser();
+  const { grades, gradeByPoints } = useGrades();
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editGrade, setEditGrade] = useState<GradeId>("magikarp");
@@ -167,22 +176,14 @@ function UserManagementTab() {
   };
 
   const saveEdit = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, gradeId: editGrade, points: editPoints, gradeOverride: getGradeByPoints(editPoints).id !== editGrade }
-          : u
-      )
-    );
+    const points = Math.max(0, Math.round(editPoints));
+    updateUser(userId, {
+      points,
+      gradeId: editGrade,
+      // 포인트 기반 자동 등급과 다르면 "수동 지정"으로 표시하고, 이후 자동 재계산에서 제외한다.
+      gradeOverride: gradeByPoints(points).id !== editGrade,
+    });
     setEditingId(null);
-  };
-
-  const toggleBan = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, isBanned: !u.isBanned, banReason: u.isBanned ? undefined : "관리자 수동 제재" } : u
-      )
-    );
   };
 
   return (
@@ -212,7 +213,7 @@ function UserManagementTab() {
       {/* User list */}
       <div className="space-y-2">
         {filtered.map((user) => {
-          const autoGrade = getGradeByPoints(user.points);
+          const autoGrade = gradeByPoints(user.points);
           const isEditing = editingId === user.id;
 
           return (
@@ -320,7 +321,7 @@ function UserManagementTab() {
                       등급 수동 지정 <span className="text-oracle-hot">★ 관리자 오버라이드</span>
                     </label>
                     <div className="grid grid-cols-2 gap-1.5">
-                      {GRADES.map((g) => (
+                      {grades.map((g) => (
                         <button
                           key={g.id}
                           onClick={() => setEditGrade(g.id)}
@@ -337,7 +338,7 @@ function UserManagementTab() {
                         </button>
                       ))}
                     </div>
-                    {editGrade !== getGradeByPoints(editPoints).id && (
+                    {editGrade !== gradeByPoints(editPoints).id && (
                       <p className="text-xs text-oracle-hot flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
                         포인트 기반 등급과 다른 등급이 지정됩니다 (★ 표시)
@@ -370,12 +371,15 @@ function OracleManagementTab() {
   const [closingId, setClosingId] = useState<string | null>(null);
   const [resultOracleId, setResultOracleId] = useState<string | null>(null);
 
-  const cycleStatus = (id: string, current: string) => {
-    const next = current === "live" ? "closed" : current === "upcoming" ? "live" : "upcoming";
+  const cycleStatus = (id: string, current: OracleStatus) => {
+    const next: OracleStatus =
+      current === "live" ? "closed" : current === "upcoming" ? "live" : "upcoming";
     if (next === "closed") {
       setClosingId(id); // trigger result selection
     } else {
-      updateOracle(id, { status: next as any });
+      // 다시 열면 이전 정답은 무효로 만든다.
+      updateOracle(id, { status: next, winningOptionId: undefined });
+      setResultOracleId((prev) => (prev === id ? null : prev));
     }
   };
 
@@ -412,6 +416,7 @@ function OracleManagementTab() {
         {filtered.map((oracle) => {
           const isClosing = closingId === oracle.id;
           const showResult = resultOracleId === oracle.id;
+          const resultOption = oracle.options.find((o) => o.id === oracle.winningOptionId);
 
           return (
             <div key={oracle.id} className={clsx(
@@ -485,12 +490,9 @@ function OracleManagementTab() {
                 <div className="ml-auto text-xs text-slate-600">by {oracle.creatorName}</div>
               </div>
 
-              {/* Result preview */}
-              {showResult && (
-                <OracleResult
-                  oracle={oracle}
-                  winningOption={oracle.options.find(o => o.percentage === Math.max(...oracle.options.map(x => x.percentage)))!}
-                />
+              {/* Result preview — 관리자가 실제로 고른 정답을 그대로 보여준다 */}
+              {showResult && resultOption && (
+                <OracleResult oracle={oracle} winningOption={resultOption} />
               )}
             </div>
           );
@@ -504,15 +506,22 @@ function OracleManagementTab() {
 /*  Grade Settings Tab                    */
 /* ────────────────────────────────────── */
 function GradeSettingsTab() {
-  const [thresholds, setThresholds] = useState(
-    GRADES.map((g) => ({ id: g.id, min: g.minPoints }))
-  );
+  const { grades, thresholds, saveThresholds } = useGrades();
+  // 편집 중인 값은 로컬에 두고, "저장"을 눌러야 전역에 반영한다.
+  const [draft, setDraft] = useState<GradeThresholds>(thresholds);
   const [saved, setSaved] = useState(false);
 
   const update = (id: GradeId, value: number) => {
-    setThresholds((prev) => prev.map((t) => (t.id === id ? { ...t, min: value } : t)));
+    setDraft((prev) => ({ ...prev, [id]: value }));
     setSaved(false);
   };
+
+  const handleSave = () => {
+    saveThresholds(draft);
+    setSaved(true);
+  };
+
+  const isDirty = grades.some((g) => (draft[g.id] ?? g.minPoints) !== thresholds[g.id]);
 
   return (
     <div className="space-y-4">
@@ -522,8 +531,7 @@ function GradeSettingsTab() {
       </div>
 
       <div className="space-y-3">
-        {GRADES.map((grade, idx) => {
-          const threshold = thresholds.find((t) => t.id === grade.id);
+        {grades.map((grade, idx) => {
           return (
             <div key={grade.id} className={clsx("rounded-xl border p-4 space-y-3", grade.bgColor, grade.borderColor)}>
               {/* Grade info */}
@@ -544,7 +552,7 @@ function GradeSettingsTab() {
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    value={threshold?.min ?? grade.minPoints}
+                    value={idx === 0 ? 0 : draft[grade.id] ?? grade.minPoints}
                     onChange={(e) => update(grade.id, Number(e.target.value))}
                     disabled={idx === 0}
                     className={clsx(
@@ -576,15 +584,16 @@ function GradeSettingsTab() {
       </div>
 
       <button
-        onClick={() => setSaved(true)}
+        onClick={handleSave}
+        disabled={!isDirty && saved}
         className={clsx(
           "w-full py-3 rounded-xl font-bold text-sm transition-all",
-          saved
+          saved && !isDirty
             ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
             : "bg-gradient-to-r from-oracle-purple to-oracle-glow text-white hover:opacity-90"
         )}
       >
-        {saved ? "✓ 저장 완료" : "변경사항 저장"}
+        {saved && !isDirty ? "✓ 저장 완료 — 등급이 즉시 재계산되었습니다" : "변경사항 저장"}
       </button>
     </div>
   );

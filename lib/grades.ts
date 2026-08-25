@@ -57,7 +57,7 @@ export const GRADES: Grade[] = [
     bgColor: "bg-emerald-500/15",
     borderColor: "border-emerald-600/50",
     glowColor: "rgba(52,211,153,0.3)",
-    perks: ["커뮤니티 댓글 작성", "예언 북마크", "기본 배팅 참여"],
+    perks: ["예언 생성 (일 3개)", "커뮤니티 댓글 작성", "예언 북마크", "기본 배팅 참여"],
     accuracyBonus: 5,
   },
   {
@@ -74,7 +74,7 @@ export const GRADES: Grade[] = [
     bgColor: "bg-yellow-500/15",
     borderColor: "border-yellow-500/50",
     glowColor: "rgba(250,204,21,0.3)",
-    perks: ["예언 생성 (일 3개)", "특별 배팅 옵션", "커뮤니티 좋아요 강화", "주간 보너스 포인트"],
+    perks: ["예언 생성 (일 5개)", "특별 배팅 옵션", "커뮤니티 좋아요 강화", "주간 보너스 포인트"],
     accuracyBonus: 10,
   },
   {
@@ -147,28 +147,83 @@ export const GRADES: Grade[] = [
   },
 ];
 
+/**
+ * 등급별 하루 예언 생성 한도.
+ * 각 등급의 perks 문구와 반드시 같은 값을 유지할 것.
+ * (잉어킹은 생성 불가 → 0)
+ */
+export function dailyOracleLimit(rank: number): number {
+  if (rank <= 1) return 0;
+  if (rank === 2) return 3;
+  if (rank === 3) return 5;
+  if (rank === 4) return 10;
+  return Infinity;
+}
+
+/** 등급별 최소 포인트 기준. 관리자 페이지에서 변경 가능. */
+export type GradeThresholds = Record<GradeId, number>;
+
+export const DEFAULT_THRESHOLDS: GradeThresholds = GRADES.reduce((acc, g) => {
+  acc[g.id] = g.minPoints;
+  return acc;
+}, {} as GradeThresholds);
+
+/**
+ * 임계값을 적용한 등급 목록을 만든다.
+ * 최하위 등급은 항상 0P로 고정되고, 각 등급의 maxPoints는 다음 등급 기준에서 파생된다.
+ * 입력이 순서에 어긋나도(예: 상위 등급이 하위보다 낮게 지정) rank 순으로 단조 증가하도록 보정한다.
+ */
+export function resolveGrades(thresholds?: Partial<GradeThresholds>): Grade[] {
+  const byRank = [...GRADES].sort((a, b) => a.rank - b.rank);
+
+  // 1) 임계값 정규화: 0 이상, rank 순으로 단조 증가
+  let prev = -1;
+  const mins = byRank.map((g, i) => {
+    if (i === 0) {
+      prev = 0;
+      return 0; // 최하위 등급은 0P 고정
+    }
+    const raw = thresholds?.[g.id] ?? DEFAULT_THRESHOLDS[g.id];
+    const min = Math.max(prev + 1, Math.max(0, Math.floor(raw)));
+    prev = min;
+    return min;
+  });
+
+  // 2) maxPoints는 다음 등급의 min - 1, 최상위는 null
+  return byRank.map((g, i) => ({
+    ...g,
+    minPoints: mins[i],
+    maxPoints: i === byRank.length - 1 ? null : mins[i + 1] - 1,
+  }));
+}
+
 /** 포인트로 등급 조회 */
-export function getGradeByPoints(points: number): Grade {
+export function getGradeByPoints(points: number, grades: Grade[] = GRADES): Grade {
   return (
-    [...GRADES].reverse().find((g) => points >= g.minPoints) ?? GRADES[0]
+    [...grades].sort((a, b) => b.rank - a.rank).find((g) => points >= g.minPoints) ??
+    grades[0]
   );
 }
 
 /** 등급 ID로 등급 조회 */
-export function getGradeById(id: GradeId): Grade {
-  return GRADES.find((g) => g.id === id) ?? GRADES[0];
+export function getGradeById(id: GradeId, grades: Grade[] = GRADES): Grade {
+  return grades.find((g) => g.id === id) ?? grades[0];
 }
 
 /** 다음 등급까지 남은 포인트 */
-export function getNextGradeProgress(points: number): {
+export function getNextGradeProgress(
+  points: number,
+  grades: Grade[] = GRADES
+): {
   current: Grade;
   next: Grade | null;
   progress: number;       // 0-100
   pointsNeeded: number;
 } {
-  const current = getGradeByPoints(points);
-  const nextIndex = GRADES.findIndex((g) => g.id === current.id) + 1;
-  const next = nextIndex < GRADES.length ? GRADES[nextIndex] : null;
+  const byRank = [...grades].sort((a, b) => a.rank - b.rank);
+  const current = getGradeByPoints(points, byRank);
+  const nextIndex = byRank.findIndex((g) => g.id === current.id) + 1;
+  const next = nextIndex < byRank.length ? byRank[nextIndex] : null;
 
   if (!next || current.maxPoints === null) {
     return { current, next: null, progress: 100, pointsNeeded: 0 };
@@ -176,8 +231,11 @@ export function getNextGradeProgress(points: number): {
 
   const rangeTotal = next.minPoints - current.minPoints;
   const rangeProgress = points - current.minPoints;
-  const progress = Math.min(100, Math.round((rangeProgress / rangeTotal) * 100));
-  const pointsNeeded = next.minPoints - points;
+  const progress =
+    rangeTotal > 0
+      ? Math.max(0, Math.min(100, Math.round((rangeProgress / rangeTotal) * 100)))
+      : 100;
+  const pointsNeeded = Math.max(0, next.minPoints - points);
 
   return { current, next, progress, pointsNeeded };
 }

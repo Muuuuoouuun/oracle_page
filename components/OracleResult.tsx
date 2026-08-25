@@ -1,30 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { Trophy, CheckCircle2, XCircle, Coins, Users, TrendingUp } from "lucide-react";
+import { Trophy, CheckCircle2, XCircle, Users, TrendingUp } from "lucide-react";
 import { Oracle, BetOption } from "@/lib/types";
-import { useUser, useOracles } from "@/lib/context";
+import { useUser } from "@/lib/context";
 import clsx from "clsx";
 
 interface Props {
   oracle: Oracle;
   winningOption: BetOption;
-  onClose?: () => void;
 }
 
-export default function OracleResult({ oracle, winningOption, onClose }: Props) {
-  const { myBets, adjustPoints } = useUser();
+export default function OracleResult({ oracle, winningOption }: Props) {
+  const { myBets } = useUser();
   const myBet = myBets.find((b) => b.oracleId === oracle.id);
   const iWon = myBet?.optionId === winningOption.id;
-  const payout = myBet ? Math.floor(myBet.amount * winningOption.odds) : 0;
-  const [claimed, setClaimed] = useState(false);
-
-  const handleClaim = () => {
-    if (iWon && !claimed) {
-      adjustPoints(payout);
-      setClaimed(true);
-    }
-  };
+  // 정산은 예언 종료 시점에 자동으로 끝난다. 여기서는 결과만 보여준다.
+  // (배당률은 배팅 시점에 고정된 값을 쓴다)
+  const payout = myBet?.payout ?? (myBet ? Math.floor(myBet.amount * myBet.odds) : 0);
 
   return (
     <div className="rounded-2xl border overflow-hidden" style={{
@@ -53,8 +45,10 @@ export default function OracleResult({ oracle, winningOption, onClose }: Props) 
             <p className="text-sm font-bold text-white">{winningOption.label}</p>
           </div>
           <div className="ml-auto text-right">
-            <p className="text-xs text-slate-500">배당률</p>
-            <p className="text-sm font-bold text-oracle-trending">x{winningOption.odds}</p>
+            <p className="text-xs text-slate-500">{myBet ? "내 확정 배당" : "배당률"}</p>
+            <p className="text-sm font-bold text-oracle-trending">
+              x{myBet ? myBet.odds : winningOption.odds}
+            </p>
           </div>
         </div>
 
@@ -96,17 +90,9 @@ export default function OracleResult({ oracle, winningOption, onClose }: Props) 
                 </div>
               )}
             </div>
-            {iWon && !claimed && (
-              <button
-                onClick={handleClaim}
-                className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-              >
-                <Coins className="w-4 h-4" /> 포인트 수령하기
-              </button>
-            )}
-            {claimed && (
+            {iWon && (
               <div className="text-center text-sm text-emerald-400 flex items-center justify-center gap-1">
-                <CheckCircle2 className="w-4 h-4" /> 포인트 수령 완료!
+                <CheckCircle2 className="w-4 h-4" /> 포인트가 자동 지급되었습니다!
               </div>
             )}
           </div>

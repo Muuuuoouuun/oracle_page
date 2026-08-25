@@ -1,5 +1,10 @@
 import { Oracle, Comment } from "./types";
 
+/**
+ * 각 예언의 commentCount 는 아래 MOCK_COMMENTS 의 해당 oracleId 댓글 수와
+ * 반드시 일치해야 한다. (댓글을 추가/삭제하면 여기 숫자도 같이 고칠 것)
+ */
+
 const now = new Date();
 const addHours = (h: number) => new Date(now.getTime() + h * 60 * 60 * 1000);
 const addDays = (d: number) => new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
@@ -23,7 +28,7 @@ export const MOCK_ORACLES: Oracle[] = [
     isTrending: true,
     isNew: false,
     tags: ["삼성전자", "반도체", "주식"],
-    commentCount: 234,
+    commentCount: 3,
     creatorName: "오라클킹",
     creatorAvatar: "👑",
   },
@@ -45,7 +50,7 @@ export const MOCK_ORACLES: Oracle[] = [
     isTrending: false,
     isNew: true,
     tags: ["손흥민", "월드컵", "축구"],
-    commentCount: 891,
+    commentCount: 3,
     creatorName: "축구예언자",
     creatorAvatar: "⚽",
   },
@@ -67,7 +72,7 @@ export const MOCK_ORACLES: Oracle[] = [
     isTrending: true,
     isNew: false,
     tags: ["비트코인", "암호화폐", "투자"],
-    commentCount: 567,
+    commentCount: 2,
     creatorName: "크립토마스터",
     creatorAvatar: "🪙",
   },
@@ -89,7 +94,7 @@ export const MOCK_ORACLES: Oracle[] = [
     isTrending: false,
     isNew: true,
     tags: ["날씨", "서울", "봄"],
-    commentCount: 43,
+    commentCount: 2,
     creatorName: "기상예언자",
     creatorAvatar: "🌤️",
   },
@@ -111,7 +116,7 @@ export const MOCK_ORACLES: Oracle[] = [
     isTrending: true,
     isNew: false,
     tags: ["GPT-5", "AI", "OpenAI"],
-    commentCount: 312,
+    commentCount: 3,
     creatorName: "AI예언가",
     creatorAvatar: "🤖",
   },
@@ -133,7 +138,7 @@ export const MOCK_ORACLES: Oracle[] = [
     isTrending: false,
     isNew: true,
     tags: ["아이브", "케이팝", "음원"],
-    commentCount: 189,
+    commentCount: 2,
     creatorName: "팝예언녀",
     creatorAvatar: "🎵",
   },
@@ -144,13 +149,16 @@ export const HOT_ORACLES = MOCK_ORACLES.filter((o) => o.isHot);
 export const NEW_ORACLES = MOCK_ORACLES.filter((o) => o.isNew);
 
 export const MOCK_COMMENTS: Comment[] = [
+  /* Oracle 1 — 삼성전자 */
   {
     id: "c1",
     oracleId: "1",
     author: "반도체왕",
     avatar: "💎",
+    gradeId: "mewtwo",
     text: "HBM 수요만 봐도 상승 확실함. 단타 예언 완료!",
     likes: 45,
+    likedByMe: false,
     createdAt: addHours(-3),
   },
   {
@@ -158,17 +166,163 @@ export const MOCK_COMMENTS: Comment[] = [
     oracleId: "1",
     author: "현실주의자",
     avatar: "🧐",
+    gradeId: "growlithe",
     text: "중국 경쟁사 견제 때문에 쉽지 않다고 봄...",
     likes: 23,
+    likedByMe: false,
     createdAt: addHours(-2),
   },
   {
     id: "c3",
+    oracleId: "1",
+    author: "오라클마스터",
+    avatar: "🔮",
+    gradeId: "arceus",
+    text: "실적은 이미 컨센서스에 반영됐다고 봅니다. 신중하게 접근하세요.",
+    likes: 67,
+    likedByMe: false,
+    createdAt: addHours(-1),
+  },
+
+  /* Oracle 2 — 손흥민 */
+  {
+    id: "c4",
     oracleId: "2",
     author: "축빠",
     avatar: "⚽",
+    gradeId: "pikachu",
     text: "손흥민 없는 월드컵은 상상도 못함 무조건 출전!!",
     likes: 112,
+    likedByMe: false,
+    createdAt: addHours(-1),
+  },
+  {
+    id: "c5",
+    oracleId: "2",
+    author: "미래보기",
+    avatar: "🎯",
+    gradeId: "mewtwo",
+    text: "무릎 부상 회복 속도가 관건인데 최근 인터뷰 보면 긍정적입니다.",
+    likes: 58,
+    likedByMe: false,
+    createdAt: addHours(-4),
+  },
+  {
+    id: "c6",
+    oracleId: "2",
+    author: "초보예언자",
+    avatar: "🌱",
+    gradeId: "bulbasaur",
+    text: "첫 예언 도전합니다! 출전에 걸었어요 🙏",
+    likes: 9,
+    likedByMe: false,
+    createdAt: addHours(-0.5),
+  },
+
+  /* Oracle 3 — 비트코인 */
+  {
+    id: "c7",
+    oracleId: "3",
+    author: "크립토마스터",
+    avatar: "🪙",
+    gradeId: "mewtwo",
+    text: "반감기 사이클 보면 2026년 내내 유지는 무리 없다고 봅니다.",
+    likes: 88,
+    likedByMe: false,
+    createdAt: addHours(-6),
+  },
+  {
+    id: "c8",
+    oracleId: "3",
+    author: "현실주의자",
+    avatar: "🧐",
+    gradeId: "growlithe",
+    text: "규제 리스크를 너무 가볍게 보는 것 같은데요. 저는 하락 쪽.",
+    likes: 34,
+    likedByMe: false,
+    createdAt: addHours(-2),
+  },
+
+  /* Oracle 4 — 서울 기온 */
+  {
+    id: "c9",
+    oracleId: "4",
+    author: "불꽃예언자",
+    avatar: "🔥",
+    gradeId: "growlithe",
+    text: "기상청 예보만 봐도 답 나오는 문제 아닌가요 ㅋㅋ",
+    likes: 21,
+    likedByMe: false,
+    createdAt: addHours(-0.5),
+  },
+  {
+    id: "c10",
+    oracleId: "4",
+    author: "피카예언",
+    avatar: "⚡",
+    gradeId: "pikachu",
+    text: "쉬운 예언으로 포인트 워밍업 하기 딱 좋네요 ⚡",
+    likes: 14,
+    likedByMe: false,
+    createdAt: addHours(-0.2),
+  },
+
+  /* Oracle 5 — GPT-5 */
+  {
+    id: "c11",
+    oracleId: "5",
+    author: "AI예언가",
+    avatar: "🤖",
+    gradeId: "mew",
+    text: "발표와 실제 출시는 다릅니다. 6월 이후에 걸었어요.",
+    likes: 73,
+    likedByMe: false,
+    createdAt: addHours(-8),
+  },
+  {
+    id: "c12",
+    oracleId: "5",
+    author: "오라클마스터",
+    avatar: "🔮",
+    gradeId: "arceus",
+    text: "지난 세대들 출시 간격 평균 내보면 6월은 좀 이른 감이 있네요.",
+    likes: 91,
+    likedByMe: false,
+    createdAt: addHours(-5),
+  },
+  {
+    id: "c13",
+    oracleId: "5",
+    author: "초보예언자",
+    avatar: "🌱",
+    gradeId: "bulbasaur",
+    text: "루머만 벌써 몇 번째인지... 이번엔 진짜였으면",
+    likes: 18,
+    likedByMe: false,
+    createdAt: addHours(-1),
+  },
+
+  /* Oracle 6 — 아이브 */
+  {
+    id: "c14",
+    oracleId: "6",
+    author: "피카예언",
+    avatar: "⚡",
+    gradeId: "pikachu",
+    text: "팬덤 화력 생각하면 1위는 거의 확정 아닐까요?",
+    likes: 42,
+    likedByMe: false,
+    createdAt: addHours(-3),
+  },
+  {
+    id: "c15",
+    oracleId: "6",
+    author: "미래보기",
+    avatar: "🎯",
+    gradeId: "mewtwo",
+    text: "같은 주 컴백 라인업이 변수입니다. 생각보다 빡빡해요.",
+    likes: 29,
+    likedByMe: false,
     createdAt: addHours(-1),
   },
 ];
