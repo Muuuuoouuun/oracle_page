@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AppProvider } from "@/lib/context";
 import GradeUpOverlay from "@/components/GradeUpOverlay";
+import ErrorToast from "@/components/ErrorToast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,8 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="relative z-10">
           <AppProvider>
             {children}
-            {/* 승급 연출은 어느 화면에서든 떠야 한다 */}
+            {/* 승급 연출과 실패 안내는 어느 화면에서든 떠야 한다 */}
             <GradeUpOverlay />
+            <ErrorToast />
           </AppProvider>
         </div>
       </body>

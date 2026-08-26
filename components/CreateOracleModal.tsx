@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Plus, Trash2, Eye, Sparkles, AlertCircle, ChevronDown } from "lucide-react";
-import { Oracle, OracleCategory, BetOption } from "@/lib/types";
+import { Oracle, OracleCategory } from "@/lib/types";
 import { useGrades, useOracles, useUser } from "@/lib/context";
 import { dailyOracleLimit } from "@/lib/grades";
 import { recalcOptions } from "@/lib/betting";
@@ -27,7 +27,7 @@ const DURATIONS = [
 interface Props { onClose: () => void }
 
 export default function CreateOracleModal({ onClose }: Props) {
-  const { addOracle, myOraclesToday } = useOracles();
+  const { createOracle, myOraclesToday } = useOracles();
   const { me } = useUser();
   const { grades } = useGrades();
   const grade = grades.find((g) => g.id === me.gradeId) ?? grades[0];
@@ -83,33 +83,16 @@ export default function CreateOracleModal({ onClose }: Props) {
 
   const handleSubmit = () => {
     // 미리보기 화면에서도 다시 들어올 수 있으므로 한도를 한 번 더 확인한다.
+    // (서버 모드에서는 create_oracle() 이 한 번 더 검사한다)
     if (!canCreate || reachedDailyLimit) return;
 
-    const betOptions: BetOption[] = recalcOptions(
-      options.map((o) => ({ id: o.id, label: o.label, percentage: 0, totalBets: 0, odds: 1 }))
-    );
-
-    const newOracle: Oracle = {
-      id: `user-${Date.now()}`,
+    createOracle({
       title: title.trim(),
       description: description.trim(),
       category,
-      status: "live",
-      options: betOptions,
-      totalParticipants: 0,
-      totalPool: 0,
+      optionLabels: options.map((o) => o.label.trim()),
       endsAt: new Date(Date.now() + minutesUntilEnd * 60 * 1000),
-      createdAt: new Date(),
-      isHot: false,
-      isTrending: false,
-      isNew: true,
-      tags: [],
-      commentCount: 0,
-      creatorName: me.name,
-      creatorAvatar: me.avatar,
-    };
-
-    addOracle(newOracle);
+    });
     onClose();
   };
 

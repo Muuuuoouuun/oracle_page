@@ -8,7 +8,7 @@ import {
   Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star
 } from "lucide-react";
 import { ADMIN_STATS } from "@/lib/adminData";
-import { useGrades, useOracles, useUser } from "@/lib/context";
+import { useGrades, useOracles, useUI, useUser } from "@/lib/context";
 import type { GradeId, GradeThresholds } from "@/lib/grades";
 import type { OracleStatus, UserProfile } from "@/lib/types";
 import GradeBadge from "@/components/GradeBadge";
@@ -20,7 +20,17 @@ type AdminTab = "대시보드" | "사용자관리" | "예언관리" | "등급설
 /* ────────────────────────────────────── */
 /*  Auth Gate                             */
 /* ────────────────────────────────────── */
+
+/**
+ * 관리자 확인.
+ *
+ * Supabase 모드에서는 프로필의 role 로 판정한다 — 비밀번호를 아는 것만으로는
+ * 들어올 수 없고, RLS 와 서버 함수가 한 번 더 막는다.
+ * 로컬(데모) 모드에는 계정 자체가 없어 비밀번호 게이트를 남겨둔다.
+ */
 function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
+  const { mode } = useUI();
+  const { me } = useUser();
   const [pw, setPw] = useState("");
   const [error, setError] = useState(false);
 
@@ -34,6 +44,53 @@ function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
     }
   };
 
+  /* 서버 모드 — role 로만 판정 */
+  if (mode === "supabase") {
+    if (me.role === "admin") {
+      return (
+        <div className="min-h-screen bg-oracle-dark flex items-center justify-center px-4">
+          <div className="w-full max-w-sm text-center space-y-4">
+            <div className="text-5xl">🛡️</div>
+            <h1 className="text-xl font-black text-white">{me.name} 님, 반갑습니다</h1>
+            <p className="text-sm text-slate-400">관리자 권한이 확인되었습니다.</p>
+            <button
+              onClick={onAuth}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-oracle-purple to-oracle-glow text-white font-bold text-sm hover:opacity-90 transition-opacity"
+            >
+              관리자 패널 열기
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-oracle-dark flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center space-y-4">
+          <div className="text-5xl">🔒</div>
+          <h1 className="text-xl font-black text-white">관리자만 볼 수 있는 화면입니다</h1>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            로그인한 계정에 관리자 권한이 없습니다.
+            <br />
+            권한은 데이터베이스에서만 부여할 수 있습니다.
+          </p>
+          <div className="rounded-xl bg-slate-800 p-3 text-left text-xs text-slate-400 font-mono overflow-x-auto">
+            update profiles set role = &apos;admin&apos;
+            <br />
+            &nbsp;where id = &apos;{me.id}&apos;;
+          </div>
+          <Link
+            href="/"
+            className="text-xs text-slate-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+          >
+            <ArrowLeft className="w-3 h-3" /> 메인으로 돌아가기
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* 로컬(데모) 모드 — 계정이 없으므로 비밀번호로 가린다 */
   return (
     <div className="min-h-screen bg-oracle-dark flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
@@ -42,6 +99,12 @@ function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
           <h1 className="text-2xl font-black gradient-text">관리자 로그인</h1>
           <p className="text-sm text-slate-500">Oracle Page Admin Panel</p>
         </div>
+
+        <div className="rounded-xl border border-oracle-trending/30 bg-oracle-trending/10 p-3 text-xs text-slate-300 leading-relaxed">
+          <span className="font-bold text-oracle-trending">데모 모드</span>입니다. 서버가 연결되면
+          이 비밀번호 대신 계정 권한으로 확인합니다.
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="password"
