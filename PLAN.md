@@ -116,9 +116,45 @@ Playwright 로 브라우저에서 확인 — 자동 정산(90초짜리 연습 �
 
 ---
 
+## 5단계 — 안정화 ✅ 완료
+
+### 유닛 테스트 도입 (43종)
+
+포인트가 오가는 계산이 React 컴포넌트 안에 있어 검증이 불가능했다. 순수 함수로 분리하고 테스트를 붙였다.
+
+- `lib/settlement.ts` 신규 — `payoutFor` / `profitFor` / `settleBets`. 정산 로직을 context 에서 떼어냈다
+- 테스트: 정산 10, 배당 12, 등급 21
+- **혜택 문구가 실제 규칙과 일치하는지**, **구현되지 않은 약속이 남아 있지 않은지**도 테스트로 고정 — 4단계에서 정리한 내용이 다시 어긋나지 않도록
+- 러너는 Node 22 내장 `node:test`. **추가 의존성 없음** (`npm test`)
+
+### Next 16 + React 19 업그레이드 — 취약점 0건
+
+Next 14 는 패치로 막을 수 없는 advisory 가 13건 남아 있었다(16.3.3 에서 수정). 14.x 에 머무는 대신 메이저를 올렸다.
+
+- `next` 14.2.35 → 16.3.3, `react`/`react-dom` 18 → 19
+- `lucide-react` 0.378 → 1.34 (React 19 peer 충족)
+- `params` 가 다시 Promise 이므로 `use(params)` 로 해석
+- `next lint` 가 제거되어 ESLint flat config 로 전환
+- **`npm audit` 0건**
+
+### React Compiler 린트가 잡아낸 문제 4건
+
+Next 16 의 새 린트 규칙이 기존 코드의 실제 문제를 드러냈다.
+
+- `useNow` 를 `useSyncExternalStore` 로 재작성. 타이머 하나를 공유하고 각자 원하는 정밀도로 값을 내림해, 값이 그대로면 리렌더를 건너뛴다
+- 홈 탭 전환을 effect 대신 `tagFilter` 에서 파생
+- `RecommendationPanel` / `CreateOracleModal` 이 렌더 중 `Date.now()` 를 부르던 부분 제거
+- localStorage 하이드레이션은 effect 가 불가피해 이유를 적고 그 부분만 예외 처리
+
+### 검증
+
+`lint` / `tsc` / `test`(43) / `build` 통과. 브라우저에서 16개 기능 전체 재확인 — 자동 정산(90초), 보너스 계산(100P × 1.55 × 1.05 = 162P), 승급 연출, 배팅 취소, 태그 필터, 알림 이동, 팔로잉 필터. 하이드레이션·런타임 에러 0.
+
+---
+
 ## 남은 작업
 
-### E-2 — 실 백엔드 / 인증 (별도 기획 필요)
+### E-2 — 실 백엔드 / 인증 (착수 전 스택 결정 필요)
 
 현재 구조의 한계이자, 착수 전에 결정이 필요한 부분:
 
@@ -128,19 +164,28 @@ Playwright 로 브라우저에서 확인 — 자동 정산(90초짜리 연습 �
 
 착수하려면 스택 결정이 먼저 필요함: Next.js Route Handlers + Postgres/Supabase, Firebase, 또는 별도 API 서버 등.
 
-### 기타
+E-2 에 딸린 작업:
 
-- Next.js `14.2.5` → 최신 패치 버전 업그레이드 (`npm install` 시 알려진 보안 취약점 경고 확인됨)
-- 유닛 테스트 도입. 우선순위는 로직이 있는 부분:
-  - `lib/grades.ts` — 등급 계산, 임계값 정규화, 일일 한도·보너스
-  - `lib/betting.ts` — 선택률 최대잔여법 배분, 배당 산출
-  - `lib/context.tsx` — 정산·연승·보너스 계산
-- 자동 정산은 **브라우저가 열려 있을 때만** 도는 시뮬레이션이다. 실제로 시간이 지나면 결과가 확정되려면 서버 쪽 스케줄러가 필요하고, 이는 E-2 에 딸린 작업이다.
+- **자동 정산이 브라우저에서만 돈다.** 탭을 닫아둔 사이에는 시간이 지나도 결과가 확정되지 않고, 다시 열 때 밀린 것을 한 번에 따라잡는다. 실제로 시간이 흐르며 정산되려면 서버 스케줄러가 필요하다.
+- 활동 티커의 다른 유저 활동도 내 브라우저에서 만들어지는 시뮬레이션이다.
+- `lib/context.tsx` 의 `pickWinner`(선택률 가중 랜덤)는 실서비스에서 **관리자 승인 큐로 대체되어야 한다.** 지금은 결과가 무작위다.
 
 ---
 
 ## 기술 사항
 
-- **상태 관리**: React Context. `OracleContext` / `UserContext` / `GradeContext` / `CommentContext` 4개를 `AppProvider` 하나가 제공
-- **외부 라이브러리 추가 없음** 원칙 유지 (localStorage 동기화도 순수 `useEffect`)
+- **런타임**: Next.js 16 (App Router) + React 19. 모든 화면이 `"use client"`
+- **상태 관리**: React Context. `OracleContext` / `UserContext` / `GradeContext` / `CommentContext` / `UIContext` 를 `AppProvider` 하나가 제공
+- **앱 의존성 최소** 원칙 유지 — 런타임 의존성은 `next`, `react`, `lucide-react`, `clsx` 뿐이고 차트·애니메이션은 CSS/Canvas 로 직접 구현. 테스트도 Node 내장 러너를 써서 의존성을 늘리지 않았다
 - **배당 모델**: 선택률의 역수에 하우스 엣지 10% 적용 (`lib/betting.ts`). 선택률 합이 항상 100 이 되도록 최대잔여법으로 배분
+- **정산**: `lib/settlement.ts` 의 순수 함수. 배당·보너스는 배팅 시점 값으로 고정되고, 이미 정산된 배팅은 다시 지급되지 않는다
+- **시간 표시**: 서버/클라이언트 시각 차이로 하이드레이션이 깨지지 않도록 `lib/useNow.ts` 를 반드시 거친다. 렌더 중 `Date.now()` 직접 호출 금지 (린트가 막는다)
+
+## 개발
+
+```bash
+npm run dev     # 개발 서버
+npm test        # 유닛 테스트 43종 (Node 내장 러너)
+npm run lint    # ESLint flat config
+npm run build   # 프로덕션 빌드
+```
