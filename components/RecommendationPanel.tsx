@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sparkles, TrendingUp, Flame, Clock, Star, ChevronRight } from "lucide-react";
 import { Oracle } from "@/lib/types";
+import { useNow } from "@/lib/useNow";
 import clsx from "clsx";
 
 type FilterTab = "추천" | "인기" | "트렌딩" | "마감임박";
@@ -21,6 +22,8 @@ const TABS: { key: FilterTab; icon: React.ReactNode; label: string }[] = [
 
 export default function RecommendationPanel({ oracles, onSelectOracle }: Props) {
   const [activeTab, setActiveTab] = useState<FilterTab>("추천");
+  // 마감 여부는 마운트 이후에만 판정한다 (렌더 중 Date.now 금지)
+  const now = useNow(30_000) ?? 0;
 
   const filtered = (() => {
     switch (activeTab) {
@@ -30,8 +33,8 @@ export default function RecommendationPanel({ oracles, onSelectOracle }: Props) 
         return oracles.filter((o) => o.isTrending).slice(0, 5);
       case "마감임박":
         return [...oracles]
-          .filter((o) => o.endsAt.getTime() > Date.now())
-          .sort((a, b) => a.endsAt.getTime() - b.endsAt.getTime())
+          .filter((o) => new Date(o.endsAt).getTime() > now)
+          .sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime())
           .slice(0, 5);
       case "추천":
       default:

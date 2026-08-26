@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Users, Coins, Clock, MessageCircle,
@@ -170,9 +170,9 @@ function CommentSection({ oracleId }: { oracleId: string }) {
 }
 
 /* ── Page ── */
-// Next.js 14 에서 params 는 Promise 가 아닌 일반 객체다. (use(params) 는 15+ API)
-export default function OracleDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+// Next.js 15+ 에서 params 는 Promise 이므로 use() 로 푼다.
+export default function OracleDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const { oracles } = useOracles();
   const { myBets } = useUser();
   const now = useNow();

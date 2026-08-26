@@ -236,9 +236,15 @@ function usePersistentState<T>(key: string, initial: T) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // localStorage 는 서버에 없다. 렌더 중이나 useState 초기화에서 읽으면
+    // 서버가 만든 HTML 과 달라져 하이드레이션이 깨지므로, 마운트 이후에 한 번
+    // 읽어 덮어쓰는 방법밖에 없다. 규칙이 경고하는 "연쇄 렌더"는 마운트 직후
+    // 한 번뿐이라 감수한다.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const stored = loadState<T>(key);
     if (stored !== null) setState(stored);
     setHydrated(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [key]);
 
   useEffect(() => {
