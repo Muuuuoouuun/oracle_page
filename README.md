@@ -20,7 +20,7 @@ localStorage 에만 저장됩니다. 계정도 없고 기기 간 공유도 되�
 | 명령 | 하는 일 |
 | --- | --- |
 | `npm run dev` | 개발 서버 |
-| `npm test` | 유닛 테스트 43종 (Node 내장 러너, 추가 의존성 없음) |
+| `npm test` | 유닛 테스트 51종 (Node 내장 러너, 추가 의존성 없음) |
 | `npm run lint` | ESLint |
 | `npm run build` | 프로덕션 빌드 |
 
@@ -29,7 +29,7 @@ localStorage 에만 저장됩니다. 계정도 없고 기기 간 공유도 되�
 ## Supabase 연결
 
 환경변수를 넣는 순간 **서버 모드**로 바뀝니다. 계정으로 로그인하고, 기록이
-Postgres 에 남고, 마감된 예언은 브라우저를 닫아도 서버가 정산합니다.
+Postgres 에 남고, 마감된 예언은 브라우저를 닫아도 서버가 처리합니다.
 
 ### 1. 프로젝트와 키
 
@@ -126,15 +126,13 @@ lib/
   grades.ts     등급 규칙 — 혜택 문구를 여기서 생성한다
   useNow.ts     시간 표시 (하이드레이션 안전)
 supabase/
-  migrations/   스키마·RLS·함수·크론
+  migrations/   스키마·RLS·함수·크론·승인 큐
   seed.sql      초기 예언
 ```
 
 값이 걸린 계산(`settlement`, `betting`, `grades`)은 순수 함수로 떼어 두고
 유닛 테스트로 고정했습니다. 서버 함수도 같은 규칙을 구현하므로, 규칙을 바꿀 때는
 **TypeScript 와 SQL 양쪽을 함께** 고쳐야 합니다.
-
----
 
 ---
 
