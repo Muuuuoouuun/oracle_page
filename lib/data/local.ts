@@ -16,7 +16,7 @@ import {
 } from "../grades";
 import { MOCK_COMMENTS, MOCK_ORACLES } from "../mockData";
 import { MOCK_USERS } from "../adminData";
-import { settleBets } from "../settlement";
+import { refundBets, settleBets } from "../settlement";
 import { STORAGE_KEYS, loadState, saveState } from "../storage";
 import type {
   ActivityEvent,
@@ -26,7 +26,14 @@ import type {
   Oracle,
   UserProfile,
 } from "../types";
-import { DataError, type AppSnapshot, type CreateOracleInput, type DataSource } from "./types";
+import {
+  DataError,
+  type AppSnapshot,
+  type CreateOracleInput,
+  type DataSource,
+  type SettlementMode,
+  type SettlementReview,
+} from "./types";
 
 /** 로그인이 없으므로 세션당 유저는 이 한 명뿐이다. */
 export const ME_ID = "me";
@@ -158,6 +165,10 @@ export function createLocalDataSource(): DataSource {
   let following = loadState<string[]>(STORAGE_KEYS.following) ?? [];
   let thresholds =
     loadState<GradeThresholds>(STORAGE_KEYS.gradeThresholds) ?? DEFAULT_THRESHOLDS;
+  // 로컬은 혼자 하는 데모라, 승인을 기다리면 결과를 영영 못 본다. 기본은 자동.
+  let settlementMode =
+    loadState<SettlementMode>(STORAGE_KEYS.settlementMode) ?? "auto";
+  let reviews = loadState<SettlementReview[]>(STORAGE_KEYS.reviews) ?? [];
   const onboarded = loadState<boolean>(STORAGE_KEYS.onboarded) ?? false;
 
   // 활동 티커는 휘발성 — 저장하지 않는다
@@ -181,6 +192,8 @@ export function createLocalDataSource(): DataSource {
     saveState(STORAGE_KEYS.comments, comments);
     saveState(STORAGE_KEYS.following, following);
     saveState(STORAGE_KEYS.gradeThresholds, thresholds);
+    saveState(STORAGE_KEYS.settlementMode, settlementMode);
+    saveState(STORAGE_KEYS.reviews, reviews);
     changed();
   }
 
@@ -213,11 +226,14 @@ export function createLocalDataSource(): DataSource {
   }
 
   /** 예언 여러 개를 한 번에 정산한다. 정산 계산은 lib/settlement.ts 가 한다. */
-  function settleMany(entries: Array<{ oracleId: string; winningOptionId: string }>) {
+  function settleMany(
+    entries: Array<{ oracleId: string; winningOptionId: string }>,
+    note = ""
+  ) {
     const winnerBy = new Map<string, string>();
     for (const e of entries) {
       const o = oracles.find((x) => x.id === e.oracleId);
-      if (!o || o.status === "closed") continue;
+      if (!o || o.status === "closed" || o.status === "voided") continue;
       if (!o.options.some((op) => op.id === e.winningOptionId)) continue;
       winnerBy.set(e.oracleId, e.winningOptionId);
     }
@@ -225,9 +241,30 @@ export function createLocalDataSource(): DataSource {
 
     oracles = oracles.map((o) =>
       winnerBy.has(o.id)
-        ? { ...o, status: "closed" as const, winningOptionId: winnerBy.get(o.id) }
+        ? {
+            ...o,
+            status: "closed" as const,
+            winningOptionId: winnerBy.get(o.id),
+            awaitingSince: undefined,
+          }
         : o
     );
+
+    // 포인트가 오간 결정은 흔적을 남긴다
+    for (const [oracleId, optionId] of Array.from(winnerBy.entries())) {
+      const o = oracles.find((x) => x.id === oracleId);
+      const mine = myBets.find((b) => b.oracleId === oracleId && b.status === "pending");
+      recordReview({
+        oracleId,
+        oracleTitle: o?.title ?? "예언",
+        action: "settle",
+        decidedByName: note === "자동 정산" ? "시스템" : me().name,
+        winningOptionLabel: o?.options.find((op) => op.id === optionId)?.label,
+        note,
+        affectedBets: mine ? 1 : 0,
+        pointsMoved: 0,
+      });
+    }
 
     const current = me();
     const result = settleBets(myBets, winnerBy, current.currentStreak, current.bestStreak);
@@ -272,6 +309,14 @@ export function createLocalDataSource(): DataSource {
 
     notifyGradeUp(current, current.points, current.points + result.totalPayout);
     persist();
+  }
+
+  /** 결재 기록을 남긴다 — 포인트가 오간 결정은 흔적이 있어야 한다. */
+  function recordReview(entry: Omit<SettlementReview, "id" | "decidedAt">) {
+    reviews = [
+      { ...entry, id: nextId("rv"), decidedAt: new Date() },
+      ...reviews,
+    ].slice(0, 100);
   }
 
   /* ── 활동 티커 시뮬레이션 ── */
@@ -319,6 +364,8 @@ export function createLocalDataSource(): DataSource {
         following,
         activity,
         thresholds,
+        settlementMode,
+        reviews,
       };
     },
 
@@ -589,18 +636,112 @@ export function createLocalDataSource(): DataSource {
       persist();
     },
 
-    /** 마감된 예언을 따라잡는다. Supabase 모드에서는 서버 크론이 대신 한다. */
+    /**
+     * 마감된 예언을 처리한다.
+     * review 모드면 승인 큐로 넘기기만 하고, auto 모드면 즉시 정산한다.
+     * (Supabase 모드에서는 서버의 close_due_oracles() 가 같은 일을 한다)
+     */
     async settleDue() {
       const now = Date.now();
       const due = oracles.filter(
-        (o) => o.status !== "closed" && new Date(o.endsAt).getTime() <= now
+        (o) =>
+          (o.status === "live" || o.status === "upcoming") &&
+          new Date(o.endsAt).getTime() <= now
       );
       if (due.length === 0) return;
-      settleMany(due.map((o) => ({ oracleId: o.id, winningOptionId: pickWinner(o) })));
+
+      if (settlementMode === "auto") {
+        settleMany(
+          due.map((o) => ({ oracleId: o.id, winningOptionId: pickWinner(o) })),
+          "자동 정산"
+        );
+        return;
+      }
+
+      // 승인 큐로 넘긴다 — 관리자가 확정할 때까지 포인트는 움직이지 않는다
+      const dueIds = new Set(due.map((o) => o.id));
+      oracles = oracles.map((o) =>
+        dueIds.has(o.id)
+          ? { ...o, status: "awaiting" as const, awaitingSince: new Date() }
+          : o
+      );
+
+      for (const o of due) {
+        if (myBets.some((b) => b.oracleId === o.id && b.status === "pending")) {
+          notify({
+            type: "system",
+            title: "결과 확정을 기다리는 중 ⏳",
+            body: `"${o.title}" 이(가) 마감되었습니다. 관리자가 결과를 확정하면 정산됩니다.`,
+            oracleId: o.id,
+          });
+        }
+      }
+      persist();
     },
 
-    async settleOracle(oracleId, winningOptionId) {
-      settleMany([{ oracleId, winningOptionId }]);
+    async settleOracle(oracleId, winningOptionId, note = "") {
+      const oracle = oracles.find((o) => o.id === oracleId);
+      if (!oracle) throw new DataError("예언을 찾을 수 없습니다.");
+      if (oracle.status === "voided") {
+        throw new DataError("무효 처리된 예언은 정산할 수 없습니다.");
+      }
+      settleMany([{ oracleId, winningOptionId }], note);
+    },
+
+    /** 판정 불가한 예언을 무효 처리하고 전원 환불한다. */
+    async voidOracle(oracleId, note = "") {
+      const oracle = oracles.find((o) => o.id === oracleId);
+      if (!oracle) throw new DataError("예언을 찾을 수 없습니다.");
+      if (oracle.status === "closed") {
+        throw new DataError("이미 정산된 예언은 무효 처리할 수 없습니다.");
+      }
+
+      oracles = oracles.map((o) =>
+        o.id === oracleId
+          ? {
+              ...o,
+              status: "voided" as const,
+              winningOptionId: undefined,
+              awaitingSince: undefined,
+            }
+          : o
+      );
+
+      // 승부가 아니었으므로 원금만 돌려주고 연승·적중률은 건드리지 않는다
+      const result = refundBets(myBets, new Set([oracleId]));
+      myBets = result.bets;
+
+      if (result.totalRefund > 0) {
+        patchMe((u) => ({
+          ...applyPoints(u, u.points + result.totalRefund, grades()),
+          totalBets: Math.max(0, u.totalBets - result.refundedCount),
+        }));
+        notify({
+          type: "system",
+          title: "예언이 무효 처리되었습니다",
+          body: `"${oracle.title}" 은(는) 판정할 수 없어 무효 처리되었습니다. ${result.totalRefund.toLocaleString()}P를 돌려드렸습니다.${
+            note ? ` (사유: ${note})` : ""
+          }`,
+          oracleId,
+        });
+      }
+
+      recordReview({
+        oracleId,
+        oracleTitle: oracle.title,
+        action: "void",
+        decidedByName: me().name,
+        note,
+        affectedBets: result.refundedCount,
+        pointsMoved: result.totalRefund,
+      });
+
+      persist();
+    },
+
+    async setSettlementMode(mode) {
+      settlementMode = mode;
+      persist();
     },
 
     async updateOracle(oracleId, patch) {

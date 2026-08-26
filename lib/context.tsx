@@ -31,21 +31,38 @@ import {
 } from "./grades";
 import { createLocalDataSource, ME_ID, TUTORIAL_ID } from "./data/local";
 import { createSupabaseDataSource, GUEST_ID } from "./data/supabase";
-import { DataError, type AppSnapshot, type CreateOracleInput, type DataSource } from "./data/types";
+import {
+  DataError,
+  type AppSnapshot,
+  type CreateOracleInput,
+  type DataSource,
+  type SettlementMode,
+  type SettlementReview,
+} from "./data/types";
 import { getSupabaseBrowser } from "./supabase/client";
 import { STORAGE_KEYS, loadState, saveState } from "./storage";
 
 export { ME_ID, TUTORIAL_ID, GUEST_ID };
 export type { MyBetRecord, Notification } from "./types";
+export type { SettlementMode, SettlementReview } from "./data/types";
 
 /* ── Context 값 ── */
 interface OracleContextValue {
   oracles: Oracle[];
   createOracle: (input: CreateOracleInput) => void;
   updateOracle: (id: string, patch: Partial<Oracle>) => void;
-  closeOracle: (id: string, winningOptionId: string) => void;
+  /** 정답을 확정하고 정산한다 (관리자) */
+  closeOracle: (id: string, winningOptionId: string, note?: string) => void;
+  /** 판정 불가한 예언을 무효 처리하고 전원 환불한다 (관리자) */
+  voidOracle: (id: string, note?: string) => void;
   /** 오늘 내가 만든 예언 수 (등급별 일일 생성 제한에 사용) */
   myOraclesToday: number;
+  /** 마감됐지만 아직 결과가 확정되지 않은 예언 (승인 큐) */
+  awaitingOracles: Oracle[];
+  settlementMode: SettlementMode;
+  setSettlementMode: (mode: SettlementMode) => void;
+  /** 최근 결재 기록 */
+  reviews: SettlementReview[];
 }
 
 interface UserContextValue {
@@ -136,6 +153,8 @@ const EMPTY: AppSnapshot = {
   following: [],
   activity: [],
   thresholds: DEFAULT_THRESHOLDS,
+  settlementMode: "review",
+  reviews: [],
 };
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -259,6 +278,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const reliefAvailable = me.id !== GUEST_ID && me.points < RELIEF_THRESHOLD;
 
+  // 승인 큐 — 오래 기다린 것이 위로
+  const awaitingOracles = useMemo(
+    () =>
+      snapshot.oracles
+        .filter((o) => o.status === "awaiting")
+        .sort(
+          (a, b) =>
+            new Date(a.awaitingSince ?? a.endsAt).getTime() -
+            new Date(b.awaitingSince ?? b.endsAt).getTime()
+        ),
+    [snapshot.oracles]
+  );
+
   const myOraclesToday = useMemo(() => {
     const today = new Date();
     return snapshot.oracles.filter(
@@ -275,10 +307,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       oracles: snapshot.oracles,
       createOracle: (input) => run((s) => s.createOracle(input)),
       updateOracle: (id, patch) => run((s) => s.updateOracle(id, patch)),
-      closeOracle: (id, winningOptionId) => run((s) => s.settleOracle(id, winningOptionId)),
+      closeOracle: (id, winningOptionId, note) =>
+        run((s) => s.settleOracle(id, winningOptionId, note)),
+      voidOracle: (id, note) => run((s) => s.voidOracle(id, note)),
       myOraclesToday,
+      awaitingOracles,
+      settlementMode: snapshot.settlementMode,
+      setSettlementMode: (mode) => run((s) => s.setSettlementMode(mode)),
+      reviews: snapshot.reviews,
     }),
-    [snapshot.oracles, myOraclesToday, run]
+    [snapshot.oracles, snapshot.settlementMode, snapshot.reviews, myOraclesToday, awaitingOracles, run]
   );
 
   const userValue = useMemo<UserContextValue>(

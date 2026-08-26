@@ -11,6 +11,7 @@ import type {
   NotificationRow,
   OracleRow,
   ProfileRow,
+  SettlementReviewRow,
 } from "../supabase/types";
 import { DEFAULT_THRESHOLDS, type GradeId, type GradeThresholds } from "../grades";
 import type {
@@ -22,7 +23,14 @@ import type {
   Oracle,
   UserProfile,
 } from "../types";
-import { DataError, type AppSnapshot, type CreateOracleInput, type DataSource } from "./types";
+import {
+  DataError,
+  type AppSnapshot,
+  type CreateOracleInput,
+  type DataSource,
+  type SettlementMode,
+  type SettlementReview,
+} from "./types";
 
 /* ── 로그인하지 않았을 때 자리를 채우는 프로필 ── */
 export const GUEST_ID = "guest";
@@ -102,6 +110,7 @@ function toOracle(r: OracleRow, options: BetOptionRow[]): Oracle {
     creatorName: r.creator_name,
     creatorAvatar: r.creator_avatar,
     winningOptionId: r.winning_option_id ?? undefined,
+    awaitingSince: r.awaiting_since ? new Date(r.awaiting_since) : undefined,
   };
 }
 
@@ -185,6 +194,16 @@ export function createSupabaseDataSource(supabase: OracleSupabase): DataSource {
           supabase.from("grade_settings").select("*").single(),
         ]);
 
+      // 승인 큐 관련 — 실패해도 앱은 떠야 하므로 기본값으로 넘어간다
+      const [modeRes, reviewRes] = await Promise.all([
+        supabase.from("app_settings").select("settlement_mode").single(),
+        supabase
+          .from("settlement_reviews")
+          .select("*")
+          .order("decided_at", { ascending: false })
+          .limit(50),
+      ]);
+
       if (oracleRes.error) fail(oracleRes.error, "예언을 불러오지 못했습니다.");
       if (optionRes.error) fail(optionRes.error, "선택지를 불러오지 못했습니다.");
       if (profileRes.error) fail(profileRes.error, "유저를 불러오지 못했습니다.");
@@ -245,6 +264,23 @@ export function createSupabaseDataSource(supabase: OracleSupabase): DataSource {
         following,
         activity: ((activityRes.data ?? []) as ActivityRow[]).map(toActivity),
         thresholds: (settings?.thresholds ?? DEFAULT_THRESHOLDS) as GradeThresholds,
+        settlementMode: (modeRes.data?.settlement_mode ?? "review") as SettlementMode,
+        reviews: ((reviewRes.data ?? []) as SettlementReviewRow[]).map((r) => {
+          const oracle = oracles.find((o) => o.id === r.oracle_id);
+          return {
+            id: r.id,
+            oracleId: r.oracle_id,
+            oracleTitle: oracle?.title ?? "예언",
+            action: r.action,
+            decidedByName:
+              users.find((u) => u.id === r.decided_by)?.name ?? "시스템",
+            winningOptionLabel: oracle?.options.find((o) => o.id === r.winning_option_id)?.label,
+            note: r.note,
+            affectedBets: r.affected_bets,
+            pointsMoved: r.points_moved,
+            decidedAt: new Date(r.decided_at),
+          } satisfies SettlementReview;
+        }),
       };
     },
 
@@ -257,6 +293,7 @@ export function createSupabaseDataSource(supabase: OracleSupabase): DataSource {
         .on("postgres_changes", { event: "*", schema: "public", table: "bets" }, onChange)
         .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, onChange)
         .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, onChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "settlement_reviews" }, onChange)
         .subscribe();
 
       return () => {
@@ -363,17 +400,31 @@ export function createSupabaseDataSource(supabase: OracleSupabase): DataSource {
     },
 
     /**
-     * 서버의 pg_cron 이 매분 정산하므로 클라이언트가 할 일이 없다.
-     * (크론을 켜지 않았다면 관리자 화면에서 수동으로 종료해야 한다)
+     * 서버의 pg_cron(close_due_oracles) 이 매분 마감을 처리하므로
+     * 클라이언트가 할 일이 없다. 크론을 켜지 않았다면 관리자가 수동으로 종료해야 한다.
      */
     async settleDue() {},
 
-    async settleOracle(oracleId, winningOptionId) {
+    async settleOracle(oracleId, winningOptionId, note = "") {
       const { error } = await supabase.rpc("settle_oracle", {
         p_oracle_id: oracleId,
         p_winning_option_id: winningOptionId,
+        p_note: note,
       });
-      if (error) fail(error, "정산에 실패했습니다.");
+      if (error) fail(error, "정산에 실패했습니다. (관리자 권한이 필요합니다)");
+    },
+
+    async voidOracle(oracleId, note = "") {
+      const { error } = await supabase.rpc("void_oracle", {
+        p_oracle_id: oracleId,
+        p_note: note,
+      });
+      if (error) fail(error, "무효 처리에 실패했습니다. (관리자 권한이 필요합니다)");
+    },
+
+    async setSettlementMode(mode) {
+      const { error } = await supabase.rpc("admin_set_settlement_mode", { p_mode: mode });
+      if (error) fail(error, "정산 모드를 바꾸지 못했습니다. (관리자 권한이 필요합니다)");
     },
 
     async updateOracle(oracleId, patch) {

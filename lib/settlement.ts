@@ -34,10 +34,39 @@ export interface SettlementResult {
   settledCount: number;
 }
 
+export interface RefundResult {
+  /** 환불이 반영된 전체 배팅 목록 (입력 순서 유지) */
+  bets: MyBetRecord[];
+  /** 돌려줄 원금 합계 */
+  totalRefund: number;
+  /** 실제로 환불된 배팅 수 */
+  refundedCount: number;
+}
+
+/**
+ * 판정 불가로 무효 처리된 예언의 배팅을 환불한다.
+ *
+ * 승부가 아니었으므로 **연승과 적중률에는 영향을 주지 않는다.** 원금만 그대로
+ * 돌려준다. 이미 승패가 갈린 배팅은 건드리지 않는다.
+ */
+export function refundBets(bets: MyBetRecord[], oracleIds: Set<string>): RefundResult {
+  let totalRefund = 0;
+  let refundedCount = 0;
+
+  const next = bets.map((b) => {
+    if (b.status !== "pending" || !oracleIds.has(b.oracleId)) return b;
+    totalRefund += b.amount;
+    refundedCount += 1;
+    return { ...b, status: "refunded" as const, payout: b.amount };
+  });
+
+  return { bets: next, totalRefund, refundedCount };
+}
+
 /**
  * 정답이 확정된 예언들에 대해 미정산 배팅을 정산한다.
  *
- * - 이미 won/lost 인 배팅은 건드리지 않는다 → 재정산해도 이중 지급되지 않는다.
+ * - 이미 won/lost/refunded 인 배팅은 건드리지 않는다 → 재정산해도 이중 지급되지 않는다.
  * - 연승은 배팅한 순서대로 계산해야 하므로 placedAt 오름차순으로 처리한다.
  */
 export function settleBets(
@@ -65,7 +94,8 @@ export function settleBets(
   }
 
   const next = bets.map((b) => settled.get(b.id) ?? b);
-  const decided = next.filter((b) => b.status !== "pending");
+  // 무효 환불(refunded)은 승부가 아니므로 적중률 분모에 넣지 않는다.
+  const decided = next.filter((b) => b.status === "won" || b.status === "lost");
   const wonBets = decided.filter((b) => b.status === "won").length;
 
   return {

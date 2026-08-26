@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   LayoutDashboard, Users, Scroll, Settings, Shield, ArrowLeft,
   TrendingUp, Activity, Coins, UserCheck, Ban, ChevronDown,
-  Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star
+  Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star, Gavel
 } from "lucide-react";
 import { ADMIN_STATS } from "@/lib/adminData";
 import { useGrades, useOracles, useUI, useUser } from "@/lib/context";
@@ -13,9 +13,10 @@ import type { GradeId, GradeThresholds } from "@/lib/grades";
 import type { OracleStatus, UserProfile } from "@/lib/types";
 import GradeBadge from "@/components/GradeBadge";
 import OracleResult from "@/components/OracleResult";
+import ReviewQueueTab from "@/components/admin/ReviewQueueTab";
 import clsx from "clsx";
 
-type AdminTab = "대시보드" | "사용자관리" | "예언관리" | "등급설정";
+type AdminTab = "대시보드" | "승인 대기" | "사용자관리" | "예언관리" | "등급설정";
 
 /* ────────────────────────────────────── */
 /*  Auth Gate                             */
@@ -434,16 +435,24 @@ function OracleManagementTab() {
   const [closingId, setClosingId] = useState<string | null>(null);
   const [resultOracleId, setResultOracleId] = useState<string | null>(null);
 
+  /**
+   * 상태 배지를 눌러 순환시킨다.
+   * 결과 확정(정답 선택)은 여기서도 할 수 있지만, 마감된 예언은
+   * "승인 대기" 탭에서 배팅 분포를 보고 처리하는 쪽이 낫다.
+   */
   const cycleStatus = (id: string, current: OracleStatus) => {
-    const next: OracleStatus =
-      current === "live" ? "closed" : current === "upcoming" ? "live" : "upcoming";
-    if (next === "closed") {
-      setClosingId(id); // trigger result selection
-    } else {
-      // 다시 열면 이전 정답은 무효로 만든다.
-      updateOracle(id, { status: next, winningOptionId: undefined });
-      setResultOracleId((prev) => (prev === id ? null : prev));
+    if (current === "live") {
+      setClosingId(id); // 정답 선택으로
+      return;
     }
+    if (current === "awaiting") {
+      setClosingId(id);
+      return;
+    }
+    // 종료·무효된 예언을 다시 열면 이전 정답은 지운다.
+    const next: OracleStatus = current === "upcoming" ? "live" : "upcoming";
+    updateOracle(id, { status: next, winningOptionId: undefined });
+    setResultOracleId((prev) => (prev === id ? null : prev));
   };
 
   const handleSetWinner = (oracleId: string, optionId: string) => {
@@ -456,12 +465,20 @@ function OracleManagementTab() {
     (o) => !search || o.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const STATUS_COLORS = {
+  const STATUS_COLORS: Record<OracleStatus, string> = {
     live: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     upcoming: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    awaiting: "bg-oracle-trending/20 text-oracle-trending border-oracle-trending/40",
     closed: "bg-slate-600/30 text-slate-500 border-slate-600/30",
+    voided: "bg-red-500/15 text-red-400 border-red-500/30",
   };
-  const STATUS_LABELS = { live: "진행중", upcoming: "예정", closed: "종료" };
+  const STATUS_LABELS: Record<OracleStatus, string> = {
+    live: "진행중",
+    upcoming: "예정",
+    awaiting: "결과 대기",
+    closed: "종료",
+    voided: "무효",
+  };
 
   return (
     <div className="space-y-4">
@@ -666,6 +683,7 @@ function GradeSettingsTab() {
 /*  Main Admin Page                       */
 /* ────────────────────────────────────── */
 export default function AdminPage() {
+  const { awaitingOracles } = useOracles();
   const [authed, setAuthed] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>("대시보드");
 
@@ -675,6 +693,7 @@ export default function AdminPage() {
 
   const TABS: { key: AdminTab; icon: React.ReactNode }[] = [
     { key: "대시보드", icon: <LayoutDashboard className="w-4 h-4" /> },
+    { key: "승인 대기", icon: <Gavel className="w-4 h-4" /> },
     { key: "사용자관리", icon: <Users className="w-4 h-4" /> },
     { key: "예언관리", icon: <Scroll className="w-4 h-4" /> },
     { key: "등급설정", icon: <Star className="w-4 h-4" /> },
@@ -715,6 +734,11 @@ export default function AdminPage() {
             >
               {tab.icon}
               {tab.key}
+              {tab.key === "승인 대기" && awaitingOracles.length > 0 && (
+                <span className="ml-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-oracle-hot text-white">
+                  {awaitingOracles.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -723,6 +747,7 @@ export default function AdminPage() {
       {/* Content */}
       <main className="flex-1 px-4 py-4">
         {activeTab === "대시보드" && <DashboardTab />}
+        {activeTab === "승인 대기" && <ReviewQueueTab />}
         {activeTab === "사용자관리" && <UserManagementTab />}
         {activeTab === "예언관리" && <OracleManagementTab />}
         {activeTab === "등급설정" && <GradeSettingsTab />}

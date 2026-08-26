@@ -48,6 +48,7 @@ export interface OracleRow {
   creator_avatar: string;
   winning_option_id: string | null;
   settled_at: string | null;
+  awaiting_since: string | null;
 }
 
 export interface BetOptionRow {
@@ -106,6 +107,18 @@ export interface ActivityRow {
   option_label: string;
   amount: number;
   created_at: string;
+}
+
+export interface SettlementReviewRow {
+  id: string;
+  oracle_id: string;
+  decided_by: string | null;
+  action: "settle" | "void";
+  winning_option_id: string | null;
+  note: string;
+  affected_bets: number;
+  points_moved: number;
+  decided_at: string;
 }
 
 export interface GradeSettingsRow {

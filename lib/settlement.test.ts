@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { payoutFor, profitFor, settleBets } from "./settlement.ts";
+import { payoutFor, profitFor, refundBets, settleBets } from "./settlement.ts";
 import type { MyBetRecord } from "./types.ts";
 
 let seq = 0;
@@ -139,5 +139,75 @@ describe("settleBets", () => {
     settleBets(bets, winners({ o1: "a" }), 0, 0);
     assert.equal(bets[0].status, "pending");
     assert.equal(bets[0].payout, undefined);
+  });
+
+  test("무효 환불은 적중률 분모에 들어가지 않는다", () => {
+    const bets = [
+      bet({ id: "1", oracleId: "a", optionId: "win" }),
+      bet({ id: "2", oracleId: "b", optionId: "lose" }),
+      bet({ id: "3", oracleId: "c", status: "refunded", payout: 100 }),
+    ];
+    const r = settleBets(bets, winners({ a: "win", b: "win" }), 0, 0);
+
+    assert.equal(r.wonBets, 1);
+    assert.equal(r.accuracy, 50, "환불된 건은 승부가 아니다");
+  });
+});
+
+describe("refundBets", () => {
+  test("원금을 그대로 돌려주고 상태를 refunded 로 바꾼다", () => {
+    const bets = [bet({ id: "x", oracleId: "o1", amount: 250 })];
+    const r = refundBets(bets, new Set(["o1"]));
+
+    assert.equal(r.totalRefund, 250);
+    assert.equal(r.refundedCount, 1);
+    assert.equal(r.bets[0].status, "refunded");
+    assert.equal(r.bets[0].payout, 250, "환불액은 원금과 같다");
+  });
+
+  test("배당·보너스가 붙어 있어도 원금만 돌려준다", () => {
+    const bets = [bet({ amount: 100, odds: 3, gradeBonus: 0.2, streakBonus: 0.15 })];
+    const r = refundBets(bets, new Set(["o1"]));
+    assert.equal(r.totalRefund, 100, "무효는 승부가 아니므로 배당을 쳐주지 않는다");
+  });
+
+  test("무효가 아닌 예언의 배팅은 건드리지 않는다", () => {
+    const bets = [bet({ oracleId: "o1" }), bet({ id: "other", oracleId: "o2" })];
+    const r = refundBets(bets, new Set(["o1"]));
+
+    assert.equal(r.refundedCount, 1);
+    assert.equal(r.bets.find((b) => b.id === "other")?.status, "pending");
+  });
+
+  test("이미 승패가 갈린 배팅은 환불하지 않는다 — 이중 지급 방지", () => {
+    const bets = [
+      bet({ id: "w", oracleId: "o1", status: "won", payout: 300 }),
+      bet({ id: "l", oracleId: "o1", status: "lost", payout: 0 }),
+    ];
+    const r = refundBets(bets, new Set(["o1"]));
+
+    assert.equal(r.totalRefund, 0);
+    assert.equal(r.refundedCount, 0);
+    assert.equal(r.bets[0].payout, 300);
+  });
+
+  test("이미 환불된 건을 다시 환불하지 않는다", () => {
+    const bets = [bet({ oracleId: "o1", status: "refunded", payout: 100 })];
+    const r = refundBets(bets, new Set(["o1"]));
+    assert.equal(r.totalRefund, 0);
+    assert.equal(r.refundedCount, 0);
+  });
+
+  test("대상이 없으면 아무 일도 없다", () => {
+    const bets = [bet({ oracleId: "o1" })];
+    const r = refundBets(bets, new Set());
+    assert.equal(r.totalRefund, 0);
+    assert.equal(r.bets[0].status, "pending");
+  });
+
+  test("원본 배열을 변형하지 않는다", () => {
+    const bets = [bet({ oracleId: "o1" })];
+    refundBets(bets, new Set(["o1"]));
+    assert.equal(bets[0].status, "pending");
   });
 });

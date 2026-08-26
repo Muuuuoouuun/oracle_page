@@ -9,7 +9,17 @@ export type OracleCategory =
   | "날씨/자연"
   | "사회/문화";
 
-export type OracleStatus = "live" | "upcoming" | "closed";
+/**
+ * 예언의 생애.
+ *
+ *   upcoming → live → awaiting → closed
+ *                        └──────→ voided
+ *
+ * - `awaiting` : 마감됐지만 관리자가 아직 정답을 확정하지 않음
+ * - `closed`   : 정답이 확정되고 정산까지 끝남
+ * - `voided`   : 판정 불가로 무효 처리되어 전원 환불됨
+ */
+export type OracleStatus = "live" | "upcoming" | "awaiting" | "closed" | "voided";
 
 export type UserRole = "user" | "admin";
 
@@ -41,6 +51,8 @@ export interface Oracle {
   creatorAvatar: string;
   /** 종료된 예언의 정답 옵션 id. status === "closed" 일 때만 설정됨. */
   winningOptionId?: string;
+  /** 승인 큐에 들어온 시각. status === "awaiting" 일 때만 설정됨. */
+  awaitingSince?: Date;
 }
 
 export interface UserProfile {
@@ -87,7 +99,8 @@ export interface UserBet {
   placedAt: Date;
 }
 
-export type BetStatus = "pending" | "won" | "lost";
+/** `refunded` 는 예언이 무효 처리되어 원금을 돌려받은 상태 (승패가 아니다) */
+export type BetStatus = "pending" | "won" | "lost" | "refunded";
 
 export interface MyBetRecord extends UserBet {
   id: string;

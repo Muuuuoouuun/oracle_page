@@ -19,6 +19,28 @@ import type { GradeId, GradeThresholds } from "../grades";
  * 계산을 여기서 하지만, supabase 모드에서는 클라이언트가 결과를 받아쓰기만 한다.
  */
 
+/**
+ * 마감된 예언을 어떻게 처리할지.
+ *
+ * - `review` : 승인 큐로 넘기고 관리자가 정답을 확정해야 정산된다
+ * - `auto`   : 선택률 가중 랜덤으로 즉시 정산한다 (데모·테스트용)
+ */
+export type SettlementMode = "review" | "auto";
+
+/** 정산·무효 결재 기록 */
+export interface SettlementReview {
+  id: string;
+  oracleId: string;
+  oracleTitle: string;
+  action: "settle" | "void";
+  decidedByName: string;
+  winningOptionLabel?: string;
+  note: string;
+  affectedBets: number;
+  pointsMoved: number;
+  decidedAt: Date;
+}
+
 export interface AppSnapshot {
   oracles: Oracle[];
   users: UserProfile[];
@@ -29,6 +51,9 @@ export interface AppSnapshot {
   following: string[];
   activity: ActivityEvent[];
   thresholds: GradeThresholds;
+  settlementMode: SettlementMode;
+  /** 최근 결재 기록 (관리자 화면에서 보여준다) */
+  reviews: SettlementReview[];
 }
 
 export interface CreateOracleInput {
@@ -64,11 +89,19 @@ export interface DataSource {
   claimDailyBonus(): Promise<void>;
   claimRelief(): Promise<void>;
 
-  /** 마감된 예언 정산. local 모드는 클라이언트가, supabase 모드는 서버 크론이 한다. */
+  /**
+   * 마감된 예언을 처리한다.
+   * review 모드면 승인 큐로 넘기기만 하고, auto 모드면 즉시 정산한다.
+   * local 모드는 클라이언트가, supabase 모드는 서버 크론이 실행한다.
+   */
   settleDue(): Promise<void>;
 
   /* 관리자 */
-  settleOracle(oracleId: string, winningOptionId: string): Promise<void>;
+  /** 정답을 확정하고 정산한다. */
+  settleOracle(oracleId: string, winningOptionId: string, note?: string): Promise<void>;
+  /** 판정 불가한 예언을 무효 처리하고 전원 환불한다. */
+  voidOracle(oracleId: string, note?: string): Promise<void>;
+  setSettlementMode(mode: SettlementMode): Promise<void>;
   updateOracle(oracleId: string, patch: Partial<Oracle>): Promise<void>;
   updateUser(
     userId: string,

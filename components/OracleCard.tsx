@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp, ExternalLink, CheckCircle2 } from "lucide-react";
+import { MessageCircle, Clock, Users, Coins, ChevronDown, ChevronUp, ExternalLink, CheckCircle2, Hourglass, Ban } from "lucide-react";
 import Link from "next/link";
 import { Oracle } from "@/lib/types";
 import { useUI, useUser } from "@/lib/context";
@@ -49,7 +49,11 @@ export default function OracleCard({ oracle, compact = false }: Props) {
   const isUrgent = now !== null && endsAt.getTime() - now < 24 * 60 * 60 * 1000;
 
   const isClosed = oracle.status === "closed";
-  const isExpired = !isClosed && now !== null && endsAt.getTime() <= now;
+  const isVoided = oracle.status === "voided";
+  const isAwaiting = oracle.status === "awaiting";
+  // 마감은 됐는데 아직 awaiting 으로 안 넘어간 짧은 순간도 배팅을 막는다
+  const isExpired =
+    !isClosed && !isVoided && !isAwaiting && now !== null && endsAt.getTime() <= now;
   const winningOption = oracle.winningOptionId
     ? oracle.options.find((o) => o.id === oracle.winningOptionId)
     : undefined;
@@ -144,7 +148,33 @@ export default function OracleCard({ oracle, compact = false }: Props) {
         {/* Betting / result section */}
         {(expanded || !compact) && (
           <div className="pt-1 border-t border-oracle-border">
-            {isClosed ? (
+            {isVoided ? (
+              /* 판정 불가로 무효 처리된 예언 — 원금은 이미 돌려줬다 */
+              <div className="flex items-center gap-2 py-2">
+                <Ban className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-sm text-slate-400 flex-1">
+                  판정할 수 없어 무효 처리되었습니다
+                </p>
+                {myBet && (
+                  <span className="text-xs font-bold text-slate-300 shrink-0">
+                    {myBet.amount.toLocaleString()}P 환불
+                  </span>
+                )}
+              </div>
+            ) : isAwaiting ? (
+              /* 마감됐지만 아직 결과가 확정되지 않았다 */
+              <div className="flex items-center gap-2 py-2">
+                <Hourglass className="w-4 h-4 text-oracle-trending shrink-0" />
+                <p className="text-sm text-slate-400 flex-1">
+                  마감됨 — 결과 확정을 기다리는 중
+                </p>
+                {myBet && (
+                  <span className="text-xs font-bold text-oracle-trending shrink-0">
+                    참여함
+                  </span>
+                )}
+              </div>
+            ) : isClosed ? (
               /* 종료된 예언에는 배팅 UI 대신 결과를 보여준다 */
               <div className="flex items-center gap-2 py-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />

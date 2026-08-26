@@ -193,7 +193,10 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
   const isUrgent = now !== null && endsAt.getTime() - now < 24 * 60 * 60 * 1000;
   const relatedOracles = oracles.filter((o) => o.id !== id && o.category === oracle.category).slice(0, 3);
   const isClosed = oracle.status === "closed";
-  const isExpired = !isClosed && now !== null && endsAt.getTime() <= now;
+  const isVoided = oracle.status === "voided";
+  const isAwaiting = oracle.status === "awaiting";
+  const isExpired =
+    !isClosed && !isVoided && !isAwaiting && now !== null && endsAt.getTime() <= now;
   const winningOption = oracle.winningOptionId
     ? oracle.options.find((o) => o.id === oracle.winningOptionId)
     : undefined;
@@ -255,9 +258,36 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
         <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-oracle-glow" />
-            {isClosed ? "예언 종료" : isExpired ? "마감됨" : "예언 참여하기"}
+            {isVoided
+              ? "무효 처리됨"
+              : isAwaiting
+              ? "결과 확정 대기"
+              : isClosed
+              ? "예언 종료"
+              : isExpired
+              ? "마감됨"
+              : "예언 참여하기"}
           </h2>
-          {isClosed ? (
+          {isVoided ? (
+            <div className="text-center py-4 space-y-1.5">
+              <p className="text-sm text-slate-300">
+                판정할 수 없어 무효 처리된 예언입니다.
+              </p>
+              <p className="text-xs text-slate-500">
+                참여하신 포인트는 전액 환불되었습니다. 승패로 기록되지 않아
+                연승과 적중률에는 영향이 없습니다.
+              </p>
+            </div>
+          ) : isAwaiting ? (
+            <div className="text-center py-4 space-y-1.5">
+              <p className="text-sm text-slate-300">
+                마감되었습니다. 관리자가 결과를 확인하는 중입니다.
+              </p>
+              <p className="text-xs text-slate-500">
+                결과가 확정되면 알림으로 알려드리고 포인트가 정산됩니다.
+              </p>
+            </div>
+          ) : isClosed ? (
             <p className="text-sm text-slate-400 text-center py-4">
               {winningOption
                 ? "이 예언은 정산이 완료되었습니다."
