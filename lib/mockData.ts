@@ -6,10 +6,79 @@ import { Oracle, Comment } from "./types";
  */
 
 const now = new Date();
+const addMins = (m: number) => new Date(now.getTime() + m * 60 * 1000);
 const addHours = (h: number) => new Date(now.getTime() + h * 60 * 60 * 1000);
 const addDays = (d: number) => new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
 
 export const MOCK_ORACLES: Oracle[] = [
+  /* ── 초단기 예언 — 앉은 자리에서 결과를 볼 수 있게 ── */
+  {
+    id: "s1",
+    title: "다음 10분 안에 이 예언에 5명 이상 참여할까?",
+    description: "가장 빠른 예언. 10분 뒤 바로 결과가 나옵니다. 감을 시험해보세요.",
+    category: "사회/문화",
+    status: "live",
+    options: [
+      { id: "s1a", label: "5명 이상 🔥", percentage: 58, totalBets: 42, odds: 1.55 },
+      { id: "s1b", label: "5명 미만 🤔", percentage: 42, totalBets: 30, odds: 2.14 },
+    ],
+    totalParticipants: 72,
+    totalPool: 1440,
+    endsAt: addMins(10),
+    createdAt: addMins(-3),
+    isHot: true,
+    isTrending: false,
+    isNew: true,
+    tags: ["초단기", "10분"],
+    commentCount: 0,
+    creatorName: "번개예언가",
+    creatorAvatar: "⚡",
+  },
+  {
+    id: "s2",
+    title: "30분 뒤, 비트코인 예언 참여자가 5,400명을 넘을까?",
+    description: "30분짜리 초단기 예언. 커뮤니티의 속도를 맞춰보세요.",
+    category: "경제/주식",
+    status: "live",
+    options: [
+      { id: "s2a", label: "넘는다 📈", percentage: 46, totalBets: 88, odds: 1.96 },
+      { id: "s2b", label: "못 넘는다 📉", percentage: 54, totalBets: 103, odds: 1.67 },
+    ],
+    totalParticipants: 191,
+    totalPool: 5730,
+    endsAt: addMins(30),
+    createdAt: addMins(-8),
+    isHot: false,
+    isTrending: true,
+    isNew: true,
+    tags: ["초단기", "비트코인"],
+    commentCount: 0,
+    creatorName: "크립토마스터",
+    creatorAvatar: "🪙",
+  },
+  {
+    id: "s3",
+    title: "1시간 뒤 오늘의 인기 예언 1위는 스포츠 카테고리일까?",
+    description: "1시간 뒤 집계 결과로 판정합니다.",
+    category: "스포츠",
+    status: "live",
+    options: [
+      { id: "s3a", label: "스포츠 ⚽", percentage: 39, totalBets: 61, odds: 2.31 },
+      { id: "s3b", label: "다른 카테고리 🎲", percentage: 61, totalBets: 95, odds: 1.48 },
+    ],
+    totalParticipants: 156,
+    totalPool: 4680,
+    endsAt: addMins(60),
+    createdAt: addMins(-15),
+    isHot: true,
+    isTrending: false,
+    isNew: true,
+    tags: ["초단기", "1시간"],
+    commentCount: 0,
+    creatorName: "축구예언자",
+    creatorAvatar: "⚽",
+  },
+
   {
     id: "1",
     title: "삼성전자, 2026 Q2 실적이 전분기 대비 상승할까?",

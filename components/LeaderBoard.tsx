@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { ME_ID, useGrades, useUser } from "@/lib/context";
 import GradeBadge from "./GradeBadge";
+import StreakBadge from "./StreakBadge";
 import clsx from "clsx";
 
 const TOP_N = 5;
@@ -57,9 +58,14 @@ export default function LeaderBoard() {
             )}
             <GradeBadge gradeId={grade.id} size="xs" isOverride={user.gradeOverride} />
           </div>
-          <p className="text-xs text-slate-500">
-            {user.accuracy > 0 ? `적중률 ${user.accuracy}%` : "아직 적중 기록 없음"}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-slate-500">
+              {user.accuracy > 0 ? `적중률 ${user.accuracy}%` : "아직 적중 기록 없음"}
+            </p>
+            {user.currentStreak >= 3 && (
+              <StreakBadge current={user.currentStreak} best={user.bestStreak} compact />
+            )}
+          </div>
         </div>
         <span className="text-xs font-bold text-oracle-glow shrink-0">
           {user.points.toLocaleString()}P

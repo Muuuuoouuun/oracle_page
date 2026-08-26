@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp, CheckCircle2, XCircle, Clock, Flame } from "lucide-react";
 import { ME_ID, useGrades, useOracles, useUser } from "@/lib/context";
 import GradeBadge from "@/components/GradeBadge";
 import { GradeGrid } from "@/components/GradeCard";
 import FollowButton from "@/components/FollowButton";
+import StreakBadge from "@/components/StreakBadge";
+import { useNow } from "@/lib/useNow";
 import { UserProfile } from "@/lib/types";
 import clsx from "clsx";
 
@@ -13,8 +15,8 @@ function formatDate(d: Date) {
   return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function timeAgo(d: Date) {
-  const m = Math.floor((Date.now() - d.getTime()) / 60000);
+function timeAgo(d: Date, now: number) {
+  const m = Math.floor((now - d.getTime()) / 60000);
   if (m < 1) return "방금";
   if (m < 60) return `${m}분 전`;
   const h = Math.floor(m / 60);
@@ -28,6 +30,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const { me, users, myBets } = useUser();
   const { oracles } = useOracles();
   const { gradeByPoints, nextGradeProgress } = useGrades();
+  const now = useNow();
 
   // Determine which user to show
   const isMe = id === ME_ID || id === me.id;
@@ -90,10 +93,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {[
               { label: "포인트", value: `${user.points.toLocaleString()}P`, icon: <Coins className="w-3.5 h-3.5" />, color: "text-oracle-glow" },
               { label: "적중률", value: accuracy > 0 ? `${accuracy}%` : "—", icon: <Target className="w-3.5 h-3.5" />, color: "text-oracle-trending" },
+              { label: "연승", value: `${user.currentStreak}`, icon: <Flame className="w-3.5 h-3.5" />, color: "text-oracle-hot" },
               { label: "총 배팅", value: `${user.totalBets}건`, icon: <Trophy className="w-3.5 h-3.5" />, color: "text-purple-400" },
             ].map((s) => (
               <div key={s.label} className="text-center bg-slate-900/40 rounded-xl p-3">
@@ -122,6 +126,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           )}
         </div>
 
+        {/* 연승 기록 */}
+        <StreakBadge current={user.currentStreak} best={user.bestStreak} />
+
         {/* My bet history (only for self) */}
         {isMe && myBets.length > 0 && (
           <div className="rounded-2xl border border-oracle-border bg-oracle-card overflow-hidden">
@@ -140,7 +147,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium line-clamp-1">{bet.oracleTitle}</p>
                     <p className="text-xs text-slate-500">
-                      {bet.optionLabel} · {bet.amount.toLocaleString()}P · {timeAgo(new Date(bet.placedAt))}
+                      {bet.optionLabel} · {bet.amount.toLocaleString()}P · {now === null ? "" : timeAgo(new Date(bet.placedAt), now)}
                     </p>
                   </div>
                   <span className={clsx(

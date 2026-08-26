@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppProvider } from "@/lib/context";
+import GradeUpOverlay from "@/components/GradeUpOverlay";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full bg-oracle-hot/5 blur-3xl" />
         </div>
         <div className="relative z-10">
-          <AppProvider>{children}</AppProvider>
+          <AppProvider>
+            {children}
+            {/* 승급 연출은 어느 화면에서든 떠야 한다 */}
+            <GradeUpOverlay />
+          </AppProvider>
         </div>
       </body>
     </html>

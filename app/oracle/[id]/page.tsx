@@ -11,10 +11,12 @@ import BettingButtons from "@/components/BettingButtons";
 import TrendingBadge from "@/components/TrendingBadge";
 import GradeBadge from "@/components/GradeBadge";
 import OracleResult from "@/components/OracleResult";
+import ShareResultButton from "@/components/ShareResultButton";
+import { useNow } from "@/lib/useNow";
 import clsx from "clsx";
 
-function formatTimeLeft(date: Date): string {
-  const diff = date.getTime() - Date.now();
+function formatTimeLeft(date: Date, now: number): string {
+  const diff = date.getTime() - now;
   if (diff < 0) return "종료됨";
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}분 남음`;
@@ -55,8 +57,8 @@ function BetChart({ options }: { options: { label: string; percentage: number; t
 }
 
 /* ── Comment Section ── */
-function timeAgo(d: Date) {
-  const m = Math.floor((Date.now() - d.getTime()) / 60000);
+function timeAgo(d: Date, now: number) {
+  const m = Math.floor((now - d.getTime()) / 60000);
   if (m < 1) return "방금";
   if (m < 60) return `${m}분 전`;
   const h = Math.floor(m / 60);
@@ -66,6 +68,7 @@ function timeAgo(d: Date) {
 
 function CommentSection({ oracleId }: { oracleId: string }) {
   const { me } = useUser();
+  const now = useNow();
   const { commentsFor, addComment, toggleCommentLike } = useComments();
   const comments = commentsFor(oracleId);
   const [input, setInput] = useState("");
@@ -145,7 +148,7 @@ function CommentSection({ oracleId }: { oracleId: string }) {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-sm font-bold text-white">{c.author}</span>
                   <GradeBadge gradeId={c.gradeId} size="xs" />
-                  <span className="text-xs text-slate-600">{timeAgo(new Date(c.createdAt))}</span>
+                  <span className="text-xs text-slate-600">{now === null ? "" : timeAgo(new Date(c.createdAt), now)}</span>
                 </div>
                 <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
                 <button
@@ -171,6 +174,8 @@ function CommentSection({ oracleId }: { oracleId: string }) {
 export default function OracleDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const { oracles } = useOracles();
+  const { myBets } = useUser();
+  const now = useNow();
 
   const oracle = oracles.find((o) => o.id === id);
   if (!oracle) {
@@ -184,12 +189,15 @@ export default function OracleDetailPage({ params }: { params: { id: string } })
   }
 
   const endsAt = new Date(oracle.endsAt);
-  const isUrgent = endsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
+  // 시간 의존 표시는 마운트 이후에만 계산한다 (하이드레이션 미스매치 방지)
+  const isUrgent = now !== null && endsAt.getTime() - now < 24 * 60 * 60 * 1000;
   const relatedOracles = oracles.filter((o) => o.id !== id && o.category === oracle.category).slice(0, 3);
   const isClosed = oracle.status === "closed";
+  const isExpired = !isClosed && now !== null && endsAt.getTime() <= now;
   const winningOption = oracle.winningOptionId
     ? oracle.options.find((o) => o.id === oracle.winningOptionId)
     : undefined;
+  const myBet = myBets.find((b) => b.oracleId === id);
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
@@ -218,7 +226,7 @@ export default function OracleDetailPage({ params }: { params: { id: string } })
             <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{oracle.totalParticipants.toLocaleString()}명 참여</span>
             <span className="flex items-center gap-1"><Coins className="w-3.5 h-3.5 text-oracle-trending" />{oracle.totalPool.toLocaleString()}P 풀</span>
             <span className={clsx("flex items-center gap-1", isUrgent && "text-oracle-hot font-bold")}>
-              <Clock className="w-3.5 h-3.5" />{formatTimeLeft(endsAt)}
+              <Clock className="w-3.5 h-3.5" />{now === null ? "—" : formatTimeLeft(endsAt, now)}
             </span>
             <span className="text-oracle-purple/70">by {oracle.creatorName}</span>
           </div>
@@ -226,7 +234,16 @@ export default function OracleDetailPage({ params }: { params: { id: string } })
 
         {/* Result (closed only) */}
         {isClosed && winningOption && (
-          <OracleResult oracle={oracle} winningOption={winningOption} />
+          <div className="space-y-2">
+            <OracleResult oracle={oracle} winningOption={winningOption} />
+            {myBet && myBet.status !== "pending" && (
+              <ShareResultButton
+                oracle={oracle}
+                bet={myBet}
+                won={myBet.status === "won"}
+              />
+            )}
+          </div>
         )}
 
         {/* Chart */}
@@ -238,7 +255,7 @@ export default function OracleDetailPage({ params }: { params: { id: string } })
         <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-oracle-glow" />
-            {isClosed ? "예언 종료" : "예언 참여하기"}
+            {isClosed ? "예언 종료" : isExpired ? "마감됨" : "예언 참여하기"}
           </h2>
           {isClosed ? (
             <p className="text-sm text-slate-400 text-center py-4">
@@ -247,7 +264,11 @@ export default function OracleDetailPage({ params }: { params: { id: string } })
                 : "이 예언은 종료되었습니다."}
             </p>
           ) : (
-            <BettingButtons options={oracle.options} oracleId={oracle.id} />
+            <BettingButtons
+              options={oracle.options}
+              oracleId={oracle.id}
+              locked={isExpired}
+            />
           )}
         </div>
 

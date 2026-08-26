@@ -13,6 +13,16 @@ const CATEGORIES: OracleCategory[] = [
   "경제/주식", "스포츠", "정치", "엔터테인먼트", "기술/AI", "날씨/자연", "사회/문화",
 ];
 
+/** 마감 기간 — 앉은 자리에서 결과를 볼 수 있는 초단기 옵션을 앞에 둔다. */
+const DURATIONS = [
+  { minutes: 5, label: "5분" },
+  { minutes: 30, label: "30분" },
+  { minutes: 60, label: "1시간" },
+  { minutes: 60 * 24, label: "1일" },
+  { minutes: 60 * 24 * 7, label: "7일" },
+  { minutes: 60 * 24 * 30, label: "30일" },
+];
+
 interface Props { onClose: () => void }
 
 export default function CreateOracleModal({ onClose }: Props) {
@@ -35,7 +45,7 @@ export default function CreateOracleModal({ onClose }: Props) {
     { id: "opt-a", label: "" },
     { id: "opt-b", label: "" },
   ]);
-  const [daysUntilEnd, setDaysUntilEnd] = useState(7);
+  const [minutesUntilEnd, setMinutesUntilEnd] = useState(60 * 24 * 7);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const addOption = () => {
@@ -85,7 +95,7 @@ export default function CreateOracleModal({ onClose }: Props) {
       options: betOptions,
       totalParticipants: 0,
       totalPool: 0,
-      endsAt: new Date(Date.now() + daysUntilEnd * 24 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + minutesUntilEnd * 60 * 1000),
       createdAt: new Date(),
       isHot: false,
       isTrending: false,
@@ -118,7 +128,7 @@ export default function CreateOracleModal({ onClose }: Props) {
     ),
     totalParticipants: 0,
     totalPool: 0,
-    endsAt: new Date(Date.now() + daysUntilEnd * 24 * 60 * 60 * 1000),
+    endsAt: new Date(Date.now() + minutesUntilEnd * 60 * 1000),
     createdAt: new Date(),
     isHot: false,
     isTrending: false,
@@ -297,21 +307,24 @@ export default function CreateOracleModal({ onClose }: Props) {
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">마감 기간</label>
               <div className="flex gap-2 flex-wrap">
-                {[1, 3, 7, 14, 30].map((d) => (
+                {DURATIONS.map((d) => (
                   <button
-                    key={d}
-                    onClick={() => setDaysUntilEnd(d)}
+                    key={d.minutes}
+                    onClick={() => setMinutesUntilEnd(d.minutes)}
                     className={clsx(
                       "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                      daysUntilEnd === d
+                      minutesUntilEnd === d.minutes
                         ? "bg-oracle-purple border-oracle-purple text-white"
                         : "bg-slate-800 border-slate-700 text-slate-400 hover:border-oracle-purple/50"
                     )}
                   >
-                    {d}일
+                    {d.label}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-slate-600">
+                마감 시각이 되면 자동으로 결과가 확정되고 포인트가 정산됩니다.
+              </p>
             </div>
 
             {/* Actions */}

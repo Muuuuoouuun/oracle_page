@@ -63,6 +63,7 @@ export const STORAGE_KEYS = {
   comments: "comments",
   following: "following",
   gradeThresholds: "gradeThresholds",
+  onboarded: "onboarded",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

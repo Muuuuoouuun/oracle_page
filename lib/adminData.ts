@@ -17,6 +17,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(180),
     lastActive: daysAgo(0),
+    currentStreak: 6,
+    bestStreak: 14,
     isBanned: false,
   },
   {
@@ -32,6 +34,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(120),
     lastActive: daysAgo(1),
+    currentStreak: 3,
+    bestStreak: 11,
     isBanned: false,
   },
   {
@@ -47,6 +51,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(90),
     lastActive: daysAgo(0),
+    currentStreak: 0,
+    bestStreak: 9,
     isBanned: false,
   },
   {
@@ -62,6 +68,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: true,
     joinedAt: daysAgo(60),
     lastActive: daysAgo(2),
+    currentStreak: 2,
+    bestStreak: 8,
     isBanned: false,
   },
   {
@@ -77,6 +85,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(45),
     lastActive: daysAgo(0),
+    currentStreak: 4,
+    bestStreak: 7,
     isBanned: false,
   },
   {
@@ -92,6 +102,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(30),
     lastActive: daysAgo(0),
+    currentStreak: 0,
+    bestStreak: 5,
     isBanned: false,
   },
   {
@@ -107,6 +119,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(20),
     lastActive: daysAgo(1),
+    currentStreak: 1,
+    bestStreak: 4,
     isBanned: false,
   },
   {
@@ -122,6 +136,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(7),
     lastActive: daysAgo(0),
+    currentStreak: 0,
+    bestStreak: 2,
     isBanned: false,
   },
   {
@@ -137,6 +153,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: false,
     joinedAt: daysAgo(3),
     lastActive: daysAgo(0),
+    currentStreak: 0,
+    bestStreak: 0,
     isBanned: true,
     banReason: "스팸 및 어뷰징 행위",
   },
@@ -153,6 +171,8 @@ export const MOCK_USERS: UserProfile[] = [
     gradeOverride: true,
     joinedAt: daysAgo(365),
     lastActive: daysAgo(0),
+    currentStreak: 0,
+    bestStreak: 0,
     isBanned: false,
   },
 ];

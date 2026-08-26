@@ -58,6 +58,26 @@ export interface UserProfile {
   lastActive: Date;
   isBanned: boolean;
   banReason?: string;
+  /** 현재 연승 (적중 시 +1, 실패 시 0) */
+  currentStreak: number;
+  /** 역대 최고 연승 */
+  bestStreak: number;
+  /** 마지막 일일 보너스 수령 시각 */
+  lastDailyBonusAt?: Date;
+}
+
+/** 커뮤니티 활동 티커에 흐르는 배팅 기록 */
+export interface ActivityEvent {
+  id: string;
+  userId: string;
+  userName: string;
+  avatar: string;
+  gradeId: GradeId;
+  oracleId: string;
+  oracleTitle: string;
+  optionLabel: string;
+  amount: number;
+  createdAt: Date;
 }
 
 export interface UserBet {

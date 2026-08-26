@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Bell, BellOff, CheckCheck, Trophy, TrendingUp, Clock, MessageCircle, Zap } from "lucide-react";
-import { useUser, Notification } from "@/lib/context";
+import Link from "next/link";
+import { Bell, BellOff, CheckCheck, Trophy, Clock, MessageCircle, Zap } from "lucide-react";
+import { useUser } from "@/lib/context";
+import { useNow } from "@/lib/useNow";
 import clsx from "clsx";
 
 const TYPE_CONFIG = {
@@ -13,8 +15,8 @@ const TYPE_CONFIG = {
   system:     { icon: <Bell className="w-4 h-4" />,    color: "text-slate-400",       bg: "bg-slate-500/10" },
 };
 
-function timeAgo(date: Date): string {
-  const diff = Date.now() - date.getTime();
+function timeAgo(date: Date, now: number): string {
+  const diff = now - date.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "방금";
   if (mins < 60) return `${mins}분 전`;
@@ -27,6 +29,7 @@ interface Props { onClose: () => void }
 
 export default function NotificationPanel({ onClose }: Props) {
   const { notifications, markNotificationRead, markAllRead } = useUser();
+  const now = useNow();
   const ref = useRef<HTMLDivElement>(null);
   const unread = notifications.filter((n) => !n.isRead).length;
 
@@ -75,16 +78,14 @@ export default function NotificationPanel({ onClose }: Props) {
         <div className="divide-y divide-oracle-border">
           {notifications.map((n) => {
             const cfg = TYPE_CONFIG[n.type];
-            return (
-              <button
-                key={n.id}
-                onClick={() => markNotificationRead(n.id)}
-                className={clsx(
-                  "w-full text-left px-4 py-3 flex items-start gap-3 transition-colors",
-                  n.isRead ? "opacity-60 hover:opacity-80" : "hover:bg-oracle-purple/5",
-                  !n.isRead && "bg-oracle-purple/3"
-                )}
-              >
+            const rowClass = clsx(
+              "w-full text-left px-4 py-3 flex items-start gap-3 transition-colors",
+              n.isRead ? "opacity-60 hover:opacity-80" : "hover:bg-oracle-purple/5",
+              !n.isRead && "bg-oracle-purple/3"
+            );
+
+            const inner = (
+              <>
                 {/* Unread dot */}
                 {!n.isRead && (
                   <span className="w-2 h-2 rounded-full bg-oracle-purple shrink-0 mt-1.5" />
@@ -99,8 +100,32 @@ export default function NotificationPanel({ onClose }: Props) {
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <p className="text-xs font-bold text-white leading-snug">{n.title}</p>
                   <p className="text-xs text-slate-400 line-clamp-2">{n.body}</p>
-                  <p className="text-[10px] text-slate-600">{timeAgo(n.createdAt)}</p>
+                  <p className="text-[10px] text-slate-600">{now === null ? "" : timeAgo(new Date(n.createdAt), now)}</p>
                 </div>
+              </>
+            );
+
+            // 예언과 연결된 알림은 눌렀을 때 그 예언으로 이동해야 한다.
+            return n.oracleId ? (
+              <Link
+                key={n.id}
+                href={`/oracle/${n.oracleId}`}
+                onClick={() => {
+                  markNotificationRead(n.id);
+                  onClose();
+                }}
+                className={rowClass}
+              >
+                {inner}
+              </Link>
+            ) : (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => markNotificationRead(n.id)}
+                className={rowClass}
+              >
+                {inner}
               </button>
             );
           })}
