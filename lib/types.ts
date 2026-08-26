@@ -87,6 +87,32 @@ export interface UserBet {
   placedAt: Date;
 }
 
+export type BetStatus = "pending" | "won" | "lost";
+
+export interface MyBetRecord extends UserBet {
+  id: string;
+  oracleTitle: string;
+  optionLabel: string;
+  /** 배팅 시점에 확정된 배당률. 이후 시장 배당이 변해도 정산은 이 값으로 한다. */
+  odds: number;
+  /** 배팅 시점 등급의 배당 보너스 (0.15 = +15%) */
+  gradeBonus: number;
+  /** 배팅 시점 연승의 배당 보너스 */
+  streakBonus: number;
+  status: BetStatus;
+  payout?: number;
+}
+
+export interface Notification {
+  id: string;
+  type: "bet_result" | "grade_up" | "deadline" | "comment" | "system";
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: Date;
+  oracleId?: string;
+}
+
 export interface Comment {
   id: string;
   oracleId: string;

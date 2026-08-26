@@ -13,11 +13,13 @@ import {
 import type {
   ActivityEvent,
   Comment,
+  MyBetRecord,
+  Notification,
   Oracle,
   OracleCategory,
-  UserBet,
   UserProfile,
 } from "./types";
+import { settleBets } from "./settlement";
 import { recalcOptions } from "./betting";
 import { MOCK_COMMENTS, MOCK_ORACLES } from "./mockData";
 import { MOCK_USERS } from "./adminData";
@@ -42,29 +44,8 @@ export const ME_ID = "me";
 export const TUTORIAL_ID = "tutorial";
 
 /* ── Types ── */
-export interface Notification {
-  id: string;
-  type: "bet_result" | "grade_up" | "deadline" | "comment" | "system";
-  title: string;
-  body: string;
-  isRead: boolean;
-  createdAt: Date;
-  oracleId?: string;
-}
-
-export interface MyBetRecord extends UserBet {
-  id: string;
-  oracleTitle: string;
-  optionLabel: string;
-  /** 배팅 시점에 확정된 배당률. 이후 시장 배당이 변해도 정산은 이 값으로 한다. */
-  odds: number;
-  /** 배팅 시점 등급의 배당 보너스 (0.15 = +15%) */
-  gradeBonus: number;
-  /** 배팅 시점 연승의 배당 보너스 */
-  streakBonus: number;
-  status: "pending" | "won" | "lost";
-  payout?: number;
-}
+// 데이터 모양은 lib/types.ts 에, 정산 계산은 lib/settlement.ts 에 있다.
+export type { MyBetRecord, Notification } from "./types";
 
 interface OracleContextValue {
   oracles: Oracle[];
@@ -524,33 +505,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      let streak = me.currentStreak;
-      let best = me.bestStreak;
-      let totalPayout = 0;
-      const settled = new Map<string, MyBetRecord>();
+      const result = settleBets(myBets, winnerBy, me.currentStreak, me.bestStreak);
+      const { totalPayout, currentStreak: streak } = result;
 
-      for (const bet of pending) {
-        const won = bet.optionId === winnerBy.get(bet.oracleId);
-        const rate = 1 + bet.gradeBonus + bet.streakBonus;
-        const payout = won ? Math.floor(bet.amount * bet.odds * rate) : 0;
-        totalPayout += payout;
-        streak = won ? streak + 1 : 0;
-        if (streak > best) best = streak;
-        settled.set(bet.id, {
-          ...bet,
-          status: won ? ("won" as const) : ("lost" as const),
-          payout,
-        });
-      }
-
-      const nextBets = myBets.map((b) => settled.get(b.id) ?? b);
-      const decided = nextBets.filter((b) => b.status !== "pending");
-      const wonCount = decided.filter((b) => b.status === "won").length;
-      const accuracy = decided.length
-        ? Math.round((wonCount / decided.length) * 100)
-        : 0;
-
-      setMyBets(nextBets);
+      setMyBets(result.bets);
 
       // 3) 당첨금 자동 지급 + 적중·연승 통계 갱신
       setUsers((prev) =>
@@ -558,10 +516,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           u.id === ME_ID
             ? {
                 ...applyPoints(u, u.points + totalPayout, grades),
-                wonBets: wonCount,
-                accuracy,
-                currentStreak: streak,
-                bestStreak: best,
+                wonBets: result.wonBets,
+                accuracy: result.accuracy,
+                currentStreak: result.currentStreak,
+                bestStreak: result.bestStreak,
               }
             : u
         )

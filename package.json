@@ -6,24 +6,29 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test lib/*.test.ts"
+  },
+  "comment:overrides": "Next 14 가 내부에 postcss@8.4.31 을 고정하는데 여기에 알려진 취약점이 있다. 같은 메이저 안에서 패치된 8.5.x 로 끌어올린다. (Next 16 으로 올리지 않고 해결하기 위한 조치)",
+  "overrides": {
+    "postcss": "^8.5.26"
   },
   "dependencies": {
-    "next": "14.2.5",
-    "react": "^18",
-    "react-dom": "^18",
+    "clsx": "^2.1.1",
     "lucide-react": "^0.378.0",
-    "clsx": "^2.1.1"
+    "next": "^14.2.35",
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
     "eslint": "^8",
-    "eslint-config-next": "14.2.5"
+    "eslint-config-next": "^14.2.35",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   }
 }
