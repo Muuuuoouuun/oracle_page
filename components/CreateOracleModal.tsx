@@ -6,6 +6,7 @@ import { Oracle, OracleCategory, BetOption } from "@/lib/types";
 import { useGrades, useOracles, useUser } from "@/lib/context";
 import { dailyOracleLimit } from "@/lib/grades";
 import { recalcOptions } from "@/lib/betting";
+import { useNow } from "@/lib/useNow";
 import OracleCard from "./OracleCard";
 import clsx from "clsx";
 
@@ -47,6 +48,8 @@ export default function CreateOracleModal({ onClose }: Props) {
   ]);
   const [minutesUntilEnd, setMinutesUntilEnd] = useState(60 * 24 * 7);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // 미리보기 카드의 마감 시각 기준점 (렌더 중 Date.now 금지)
+  const now = useNow(60_000) ?? 0;
 
   const addOption = () => {
     if (options.length >= 4) return;
@@ -128,8 +131,8 @@ export default function CreateOracleModal({ onClose }: Props) {
     ),
     totalParticipants: 0,
     totalPool: 0,
-    endsAt: new Date(Date.now() + minutesUntilEnd * 60 * 1000),
-    createdAt: new Date(),
+    endsAt: new Date(now + minutesUntilEnd * 60 * 1000),
+    createdAt: new Date(now),
     isHot: false,
     isTrending: false,
     isNew: true,

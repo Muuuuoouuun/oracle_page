@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Sparkles, Bell, Home, TrendingUp, Users, Plus, Flame, Zap, Shield,
   Ticket, Clock, CheckCircle2, XCircle,
@@ -37,8 +37,8 @@ export default function OraclePage() {
   const { oracles } = useOracles();
   const { me, myBets, notifications } = useUser();
   const { gradeByPoints } = useGrades();
-  const { tagFilter } = useUI();
-  const [activeTab, setActiveTab] = useState<Tab>("홈");
+  const { tagFilter, setTagFilter } = useUI();
+  const [selectedTab, setSelectedTab] = useState<Tab>("홈");
   const [showCreate, setShowCreate] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -48,10 +48,13 @@ export default function OraclePage() {
   const trendingOracles = oracles.filter((o) => o.isTrending && o.status !== "closed");
   const pendingCount = myBets.filter((b) => b.status === "pending").length;
 
-  // 태그를 누르면 커뮤니티 피드로 데려간다 (필터가 걸린 곳이 거기라서)
-  useEffect(() => {
-    if (tagFilter) setActiveTab("커뮤니티");
-  }, [tagFilter]);
+  // 태그를 누르면 커뮤니티 피드로 데려간다 (필터가 걸린 곳이 거기라서).
+  // state 를 또 만들지 않고 파생시킨다.
+  const activeTab: Tab = tagFilter ? "커뮤니티" : selectedTab;
+  const handleTabClick = (tab: Tab) => {
+    if (tagFilter) setTagFilter(null);
+    setSelectedTab(tab);
+  };
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen flex flex-col">
@@ -106,7 +109,7 @@ export default function OraclePage() {
           {TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabClick(tab.key)}
               className={clsx(
                 "flex-1 py-2.5 text-sm font-medium transition-all border-b-2 relative",
                 activeTab === tab.key

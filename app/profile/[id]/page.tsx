@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp, CheckCircle2, XCircle, Clock, Flame } from "lucide-react";
 import { ME_ID, useGrades, useOracles, useUser } from "@/lib/context";
@@ -24,9 +25,9 @@ function timeAgo(d: Date, now: number) {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-// Next.js 14 에서 params 는 Promise 가 아닌 일반 객체다. (use(params) 는 15+ API)
-export default function ProfilePage({ params }: { params: { id: string } }) {
-  const { id } = params;
+// Next.js 15+ 에서 params 는 Promise 이므로 use() 로 푼다.
+export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const { me, users, myBets } = useUser();
   const { oracles } = useOracles();
   const { gradeByPoints, nextGradeProgress } = useGrades();
