@@ -2,12 +2,13 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp, CheckCircle2, XCircle, Clock } from "lucide-react";
-import { useUser, useOracles } from "@/lib/context";
-import { MOCK_USERS } from "@/lib/adminData";
-import { getGradeByPoints, getNextGradeProgress } from "@/lib/grades";
+import { ArrowLeft, Trophy, Target, Coins, Calendar, TrendingUp, CheckCircle2, XCircle, Clock, Flame } from "lucide-react";
+import { ME_ID, useGrades, useOracles, useUser } from "@/lib/context";
 import GradeBadge from "@/components/GradeBadge";
-import GradeCard, { GradeGrid } from "@/components/GradeCard";
+import { GradeGrid } from "@/components/GradeCard";
+import FollowButton from "@/components/FollowButton";
+import StreakBadge from "@/components/StreakBadge";
+import { useNow } from "@/lib/useNow";
 import { UserProfile } from "@/lib/types";
 import clsx from "clsx";
 
@@ -15,8 +16,8 @@ function formatDate(d: Date) {
   return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function timeAgo(d: Date) {
-  const m = Math.floor((Date.now() - d.getTime()) / 60000);
+function timeAgo(d: Date, now: number) {
+  const m = Math.floor((now - d.getTime()) / 60000);
   if (m < 1) return "방금";
   if (m < 60) return `${m}분 전`;
   const h = Math.floor(m / 60);
@@ -24,16 +25,17 @@ function timeAgo(d: Date) {
   return `${Math.floor(h / 24)}일 전`;
 }
 
+// Next.js 15+ 에서 params 는 Promise 이므로 use() 로 푼다.
 export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { me, myBets } = useUser();
+  const { me, users, myBets } = useUser();
   const { oracles } = useOracles();
+  const { gradeByPoints, nextGradeProgress } = useGrades();
+  const now = useNow();
 
   // Determine which user to show
-  const isMe = id === "me" || id === me.id;
-  const user: UserProfile | undefined = isMe
-    ? me
-    : MOCK_USERS.find((u) => u.id === id);
+  const isMe = id === ME_ID || id === me.id;
+  const user: UserProfile | undefined = isMe ? me : users.find((u) => u.id === id);
 
   if (!user) {
     return (
@@ -45,18 +47,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const grade = getGradeByPoints(user.points);
-  const { next, progress, pointsNeeded } = getNextGradeProgress(user.points);
-  const wonBets = isMe ? myBets.filter((b) => b.status === "won") : [];
-  const lostBets = isMe ? myBets.filter((b) => b.status === "lost") : [];
-  const pendingBets = isMe ? myBets.filter((b) => b.status === "pending") : [];
-  const accuracy = isMe
-    ? myBets.length > 0 ? Math.round((wonBets.length / myBets.filter(b => b.status !== "pending").length || 0) * 100) : 0
-    : user.accuracy;
-
-  const createdOracles = isMe
-    ? oracles.filter((o) => o.creatorName === me.name)
-    : oracles.filter((o) => o.creatorName === user.name);
+  const grade = gradeByPoints(user.points);
+  const { next, progress, pointsNeeded } = nextGradeProgress(user.points);
+  // 적중률/배팅 수는 정산 시점에 context 에서 갱신되므로 유저 객체를 그대로 신뢰한다.
+  const accuracy = user.accuracy;
+  const createdOracles = oracles.filter((o) => o.creatorName === user.name);
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
@@ -90,17 +85,21 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               <GradeBadge gradeId={grade.id} size="sm" showTitle isOverride={user.gradeOverride} />
               <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
                 <Calendar className="w-3 h-3" />
-                {formatDate(user.joinedAt)} 가입
+                {formatDate(new Date(user.joinedAt))} 가입
               </div>
             </div>
+            {!isMe && (
+              <FollowButton userId={user.id} userName={user.name} className="shrink-0" />
+            )}
           </div>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {[
               { label: "포인트", value: `${user.points.toLocaleString()}P`, icon: <Coins className="w-3.5 h-3.5" />, color: "text-oracle-glow" },
               { label: "적중률", value: accuracy > 0 ? `${accuracy}%` : "—", icon: <Target className="w-3.5 h-3.5" />, color: "text-oracle-trending" },
-              { label: "총 배팅", value: `${isMe ? myBets.length : user.totalBets}건`, icon: <Trophy className="w-3.5 h-3.5" />, color: "text-purple-400" },
+              { label: "연승", value: `${user.currentStreak}`, icon: <Flame className="w-3.5 h-3.5" />, color: "text-oracle-hot" },
+              { label: "총 배팅", value: `${user.totalBets}건`, icon: <Trophy className="w-3.5 h-3.5" />, color: "text-purple-400" },
             ].map((s) => (
               <div key={s.label} className="text-center bg-slate-900/40 rounded-xl p-3">
                 <div className={clsx("flex justify-center mb-1", s.color)}>{s.icon}</div>
@@ -128,6 +127,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           )}
         </div>
 
+        {/* 연승 기록 */}
+        <StreakBadge current={user.currentStreak} best={user.bestStreak} />
+
         {/* My bet history (only for self) */}
         {isMe && myBets.length > 0 && (
           <div className="rounded-2xl border border-oracle-border bg-oracle-card overflow-hidden">
@@ -146,14 +148,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white font-medium line-clamp-1">{bet.oracleTitle}</p>
                     <p className="text-xs text-slate-500">
-                      {bet.optionLabel} · {bet.amount.toLocaleString()}P · {timeAgo(bet.placedAt)}
+                      {bet.optionLabel} · {bet.amount.toLocaleString()}P · {now === null ? "" : timeAgo(new Date(bet.placedAt), now)}
                     </p>
                   </div>
                   <span className={clsx(
                     "text-xs font-bold shrink-0",
                     bet.status === "won" ? "text-emerald-400" : bet.status === "lost" ? "text-oracle-hot" : "text-slate-500"
                   )}>
-                    {bet.status === "won" ? `+${bet.payout ?? bet.amount}P` : bet.status === "lost" ? `-${bet.amount}P` : "진행중"}
+                    {bet.status === "won"
+                      ? `+${(bet.payout ?? Math.floor(bet.amount * bet.odds)).toLocaleString()}P`
+                      : bet.status === "lost"
+                      ? `-${bet.amount.toLocaleString()}P`
+                      : "진행중"}
                   </span>
                 </div>
               ))}

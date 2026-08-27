@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { X, Plus, Trash2, Eye, Sparkles, AlertCircle, ChevronDown } from "lucide-react";
-import { Oracle, OracleCategory, BetOption } from "@/lib/types";
-import { useOracles, useUser } from "@/lib/context";
-import { getGradeById } from "@/lib/grades";
+import { Oracle, OracleCategory } from "@/lib/types";
+import { useGrades, useOracles, useUser } from "@/lib/context";
+import { dailyOracleLimit } from "@/lib/grades";
+import { recalcOptions } from "@/lib/betting";
+import { useNow } from "@/lib/useNow";
 import OracleCard from "./OracleCard";
 import clsx from "clsx";
 
@@ -12,16 +14,29 @@ const CATEGORIES: OracleCategory[] = [
   "경제/주식", "스포츠", "정치", "엔터테인먼트", "기술/AI", "날씨/자연", "사회/문화",
 ];
 
+/** 마감 기간 — 앉은 자리에서 결과를 볼 수 있는 초단기 옵션을 앞에 둔다. */
+const DURATIONS = [
+  { minutes: 5, label: "5분" },
+  { minutes: 30, label: "30분" },
+  { minutes: 60, label: "1시간" },
+  { minutes: 60 * 24, label: "1일" },
+  { minutes: 60 * 24 * 7, label: "7일" },
+  { minutes: 60 * 24 * 30, label: "30일" },
+];
+
 interface Props { onClose: () => void }
 
 export default function CreateOracleModal({ onClose }: Props) {
-  const { addOracle } = useOracles();
+  const { createOracle, myOraclesToday } = useOracles();
   const { me } = useUser();
-  const grade = getGradeById(me.gradeId);
+  const { grades } = useGrades();
+  const grade = grades.find((g) => g.id === me.gradeId) ?? grades[0];
 
-  // Grade-based daily limit
-  const maxPerDay = grade.rank >= 4 ? Infinity : grade.rank >= 3 ? 10 : 3;
-  const canCreate = grade.rank >= 2; // 이상해씨 이상
+  // Grade-based daily limit (규칙은 lib/grades.ts 한 곳에서 관리)
+  const maxPerDay = dailyOracleLimit(grade.rank);
+  const canCreate = maxPerDay > 0; // 이상해씨(rank 2) 이상
+  const remainingToday = maxPerDay === Infinity ? Infinity : maxPerDay - myOraclesToday;
+  const reachedDailyLimit = remainingToday <= 0;
 
   const [step, setStep] = useState<"form" | "preview">("form");
   const [title, setTitle] = useState("");
@@ -31,8 +46,10 @@ export default function CreateOracleModal({ onClose }: Props) {
     { id: "opt-a", label: "" },
     { id: "opt-b", label: "" },
   ]);
-  const [daysUntilEnd, setDaysUntilEnd] = useState(7);
+  const [minutesUntilEnd, setMinutesUntilEnd] = useState(60 * 24 * 7);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // 미리보기 카드의 마감 시각 기준점 (렌더 중 Date.now 금지)
+  const now = useNow(60_000) ?? 0;
 
   const addOption = () => {
     if (options.length >= 4) return;
@@ -65,36 +82,17 @@ export default function CreateOracleModal({ onClose }: Props) {
   };
 
   const handleSubmit = () => {
-    const total = options.length;
-    const betOptions: BetOption[] = options.map((o, i) => ({
-      id: o.id,
-      label: o.label,
-      percentage: Math.round(100 / total),
-      totalBets: 0,
-      odds: parseFloat((total * 0.9).toFixed(1)),
-    }));
+    // 미리보기 화면에서도 다시 들어올 수 있으므로 한도를 한 번 더 확인한다.
+    // (서버 모드에서는 create_oracle() 이 한 번 더 검사한다)
+    if (!canCreate || reachedDailyLimit) return;
 
-    const newOracle: Oracle = {
-      id: `user-${Date.now()}`,
+    createOracle({
       title: title.trim(),
       description: description.trim(),
       category,
-      status: "live",
-      options: betOptions,
-      totalParticipants: 0,
-      totalPool: 0,
-      endsAt: new Date(Date.now() + daysUntilEnd * 24 * 60 * 60 * 1000),
-      createdAt: new Date(),
-      isHot: false,
-      isTrending: false,
-      isNew: true,
-      tags: [],
-      commentCount: 0,
-      creatorName: me.name,
-      creatorAvatar: me.avatar,
-    };
-
-    addOracle(newOracle);
+      optionLabels: options.map((o) => o.label.trim()),
+      endsAt: new Date(Date.now() + minutesUntilEnd * 60 * 1000),
+    });
     onClose();
   };
 
@@ -105,17 +103,19 @@ export default function CreateOracleModal({ onClose }: Props) {
     description: description || "예언 설명",
     category,
     status: "live",
-    options: options.map((o, i) => ({
-      id: o.id,
-      label: o.label || `옵션 ${i + 1}`,
-      percentage: Math.round(100 / options.length),
-      totalBets: 0,
-      odds: parseFloat((options.length * 0.9).toFixed(1)),
-    })),
+    options: recalcOptions(
+      options.map((o, i) => ({
+        id: o.id,
+        label: o.label || `옵션 ${i + 1}`,
+        percentage: 0,
+        totalBets: 0,
+        odds: 1,
+      }))
+    ),
     totalParticipants: 0,
     totalPool: 0,
-    endsAt: new Date(Date.now() + daysUntilEnd * 24 * 60 * 60 * 1000),
-    createdAt: new Date(),
+    endsAt: new Date(now + minutesUntilEnd * 60 * 1000),
+    createdAt: new Date(now),
     isHot: false,
     isTrending: false,
     isNew: true,
@@ -138,7 +138,9 @@ export default function CreateOracleModal({ onClose }: Props) {
             <h2 className="text-base font-black text-white">새 예언 등록</h2>
             <p className="text-xs text-slate-500">
               {grade.emoji} {grade.name} 등급 ·{" "}
-              {maxPerDay === Infinity ? "무제한" : `일 ${maxPerDay}개`} 생성 가능
+              {maxPerDay === Infinity
+                ? "무제한 생성 가능"
+                : `오늘 ${myOraclesToday}/${maxPerDay}개 사용`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -169,6 +171,21 @@ export default function CreateOracleModal({ onClose }: Props) {
               <br />
               필요 포인트:{" "}
               <span className="font-bold text-emerald-400">{Math.max(0, 1000 - me.points).toLocaleString()}P 더</span>
+            </div>
+          </div>
+        ) : reachedDailyLimit ? (
+          /* Daily limit reached */
+          <div className="p-6 text-center space-y-3">
+            <div className="text-4xl">⏳</div>
+            <p className="text-white font-bold">오늘의 예언 생성 한도를 모두 사용했어요</p>
+            <p className="text-sm text-slate-400">
+              {grade.emoji} {grade.name} 등급은 하루에 {maxPerDay}개까지 생성할 수 있습니다.
+              <br />
+              내일 다시 도전하거나, 등급을 올려 한도를 늘려보세요!
+            </p>
+            <div className="rounded-xl bg-slate-800 p-3 text-xs text-slate-400">
+              오늘 생성한 예언:{" "}
+              <span className="font-bold text-white">{myOraclesToday}개</span>
             </div>
           </div>
         ) : step === "preview" ? (
@@ -276,21 +293,24 @@ export default function CreateOracleModal({ onClose }: Props) {
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">마감 기간</label>
               <div className="flex gap-2 flex-wrap">
-                {[1, 3, 7, 14, 30].map((d) => (
+                {DURATIONS.map((d) => (
                   <button
-                    key={d}
-                    onClick={() => setDaysUntilEnd(d)}
+                    key={d.minutes}
+                    onClick={() => setMinutesUntilEnd(d.minutes)}
                     className={clsx(
                       "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                      daysUntilEnd === d
+                      minutesUntilEnd === d.minutes
                         ? "bg-oracle-purple border-oracle-purple text-white"
                         : "bg-slate-800 border-slate-700 text-slate-400 hover:border-oracle-purple/50"
                     )}
                   >
-                    {d}일
+                    {d.label}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-slate-600">
+                마감 시각이 되면 자동으로 결과가 확정되고 포인트가 정산됩니다.
+              </p>
             </div>
 
             {/* Actions */}

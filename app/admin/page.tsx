@@ -5,22 +5,33 @@ import Link from "next/link";
 import {
   LayoutDashboard, Users, Scroll, Settings, Shield, ArrowLeft,
   TrendingUp, Activity, Coins, UserCheck, Ban, ChevronDown,
-  Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star
+  Search, Edit2, Check, X, AlertTriangle, Flame, Zap, Star, Gavel
 } from "lucide-react";
-import { MOCK_USERS, ADMIN_STATS } from "@/lib/adminData";
-import { useOracles, useUser } from "@/lib/context";
-import { GRADES, GradeId, getGradeByPoints, getGradeById } from "@/lib/grades";
-import { UserProfile, Oracle } from "@/lib/types";
+import { ADMIN_STATS } from "@/lib/adminData";
+import { useGrades, useOracles, useUI, useUser } from "@/lib/context";
+import type { GradeId, GradeThresholds } from "@/lib/grades";
+import type { OracleStatus, UserProfile } from "@/lib/types";
 import GradeBadge from "@/components/GradeBadge";
 import OracleResult from "@/components/OracleResult";
+import ReviewQueueTab from "@/components/admin/ReviewQueueTab";
 import clsx from "clsx";
 
-type AdminTab = "대시보드" | "사용자관리" | "예언관리" | "등급설정";
+type AdminTab = "대시보드" | "승인 대기" | "사용자관리" | "예언관리" | "등급설정";
 
 /* ────────────────────────────────────── */
 /*  Auth Gate                             */
 /* ────────────────────────────────────── */
+
+/**
+ * 관리자 확인.
+ *
+ * Supabase 모드에서는 프로필의 role 로 판정한다 — 비밀번호를 아는 것만으로는
+ * 들어올 수 없고, RLS 와 서버 함수가 한 번 더 막는다.
+ * 로컬(데모) 모드에는 계정 자체가 없어 비밀번호 게이트를 남겨둔다.
+ */
 function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
+  const { mode } = useUI();
+  const { me } = useUser();
   const [pw, setPw] = useState("");
   const [error, setError] = useState(false);
 
@@ -34,6 +45,53 @@ function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
     }
   };
 
+  /* 서버 모드 — role 로만 판정 */
+  if (mode === "supabase") {
+    if (me.role === "admin") {
+      return (
+        <div className="min-h-screen bg-oracle-dark flex items-center justify-center px-4">
+          <div className="w-full max-w-sm text-center space-y-4">
+            <div className="text-5xl">🛡️</div>
+            <h1 className="text-xl font-black text-white">{me.name} 님, 반갑습니다</h1>
+            <p className="text-sm text-slate-400">관리자 권한이 확인되었습니다.</p>
+            <button
+              onClick={onAuth}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-oracle-purple to-oracle-glow text-white font-bold text-sm hover:opacity-90 transition-opacity"
+            >
+              관리자 패널 열기
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-oracle-dark flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center space-y-4">
+          <div className="text-5xl">🔒</div>
+          <h1 className="text-xl font-black text-white">관리자만 볼 수 있는 화면입니다</h1>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            로그인한 계정에 관리자 권한이 없습니다.
+            <br />
+            권한은 데이터베이스에서만 부여할 수 있습니다.
+          </p>
+          <div className="rounded-xl bg-slate-800 p-3 text-left text-xs text-slate-400 font-mono overflow-x-auto">
+            update profiles set role = &apos;admin&apos;
+            <br />
+            &nbsp;where id = &apos;{me.id}&apos;;
+          </div>
+          <Link
+            href="/"
+            className="text-xs text-slate-500 hover:text-white transition-colors flex items-center justify-center gap-1"
+          >
+            <ArrowLeft className="w-3 h-3" /> 메인으로 돌아가기
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* 로컬(데모) 모드 — 계정이 없으므로 비밀번호로 가린다 */
   return (
     <div className="min-h-screen bg-oracle-dark flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
@@ -42,6 +100,12 @@ function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
           <h1 className="text-2xl font-black gradient-text">관리자 로그인</h1>
           <p className="text-sm text-slate-500">Oracle Page Admin Panel</p>
         </div>
+
+        <div className="rounded-xl border border-oracle-trending/30 bg-oracle-trending/10 p-3 text-xs text-slate-300 leading-relaxed">
+          <span className="font-bold text-oracle-trending">데모 모드</span>입니다. 서버가 연결되면
+          이 비밀번호 대신 계정 권한으로 확인합니다.
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="password"
@@ -83,6 +147,8 @@ function AdminAuthGate({ onAuth }: { onAuth: () => void }) {
 /*  Dashboard Tab                         */
 /* ────────────────────────────────────── */
 function DashboardTab() {
+  const { users } = useUser();
+  const { grades, gradeByPoints } = useGrades();
   const stats = ADMIN_STATS;
   const cards = [
     { label: "총 사용자", value: stats.totalUsers.toLocaleString(), sub: `오늘 활성: ${stats.activeToday.toLocaleString()}명`, icon: <Users className="w-5 h-5" />, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
@@ -93,11 +159,16 @@ function DashboardTab() {
     { label: "평균 적중률", value: `${stats.avgAccuracy}%`, sub: "전체 유저", icon: <TrendingUp className="w-5 h-5" />, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
   ];
 
-  // Grade distribution
-  const gradeDistribution = GRADES.map((g) => ({
-    grade: g,
-    count: MOCK_USERS.filter((u) => getGradeByPoints(u.points).id === g.id && !u.isBanned).length,
-  }));
+  // Grade distribution — 높은 등급이 위로 오도록 rank 내림차순
+  const activeUsers = users.filter((u) => !u.isBanned);
+  const gradeDistribution = [...grades]
+    .sort((a, b) => b.rank - a.rank)
+    .map((g) => ({
+      grade: g,
+      count: activeUsers.filter((u) => gradeByPoints(u.points).id === g.id).length,
+    }));
+  // 막대는 가장 인원이 많은 등급을 100% 로 두고 상대 비교한다.
+  const maxCount = Math.max(1, ...gradeDistribution.map((d) => d.count));
 
   return (
     <div className="space-y-6">
@@ -120,7 +191,7 @@ function DashboardTab() {
           <Star className="w-4 h-4 text-oracle-trending" /> 등급 분포
         </h3>
         <div className="space-y-2">
-          {gradeDistribution.reverse().map(({ grade, count }) => (
+          {gradeDistribution.map(({ grade, count }) => (
             <div key={grade.id} className="flex items-center gap-2">
               <span className="text-base w-6 text-center">{grade.emoji}</span>
               <span className={clsx("text-xs font-medium w-16", grade.color)}>{grade.name}</span>
@@ -128,7 +199,7 @@ function DashboardTab() {
                 <div
                   className="h-full rounded-full"
                   style={{
-                    width: `${Math.min(100, (count / MOCK_USERS.length) * 100 * 3)}%`,
+                    width: `${(count / maxCount) * 100}%`,
                     backgroundColor: grade.glowColor,
                   }}
                 />
@@ -146,7 +217,9 @@ function DashboardTab() {
 /*  User Management Tab                   */
 /* ────────────────────────────────────── */
 function UserManagementTab() {
-  const [users, setUsers] = useState<UserProfile[]>(MOCK_USERS);
+  // 유저 목록은 전역 상태를 그대로 쓴다. 여기서 수정하면 로그인한 "나"에게도 실제로 반영된다.
+  const { users, updateUser, toggleBan } = useUser();
+  const { grades, gradeByPoints } = useGrades();
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editGrade, setEditGrade] = useState<GradeId>("magikarp");
@@ -167,22 +240,14 @@ function UserManagementTab() {
   };
 
   const saveEdit = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, gradeId: editGrade, points: editPoints, gradeOverride: getGradeByPoints(editPoints).id !== editGrade }
-          : u
-      )
-    );
+    const points = Math.max(0, Math.round(editPoints));
+    updateUser(userId, {
+      points,
+      gradeId: editGrade,
+      // 포인트 기반 자동 등급과 다르면 "수동 지정"으로 표시하고, 이후 자동 재계산에서 제외한다.
+      gradeOverride: gradeByPoints(points).id !== editGrade,
+    });
     setEditingId(null);
-  };
-
-  const toggleBan = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, isBanned: !u.isBanned, banReason: u.isBanned ? undefined : "관리자 수동 제재" } : u
-      )
-    );
   };
 
   return (
@@ -212,7 +277,7 @@ function UserManagementTab() {
       {/* User list */}
       <div className="space-y-2">
         {filtered.map((user) => {
-          const autoGrade = getGradeByPoints(user.points);
+          const autoGrade = gradeByPoints(user.points);
           const isEditing = editingId === user.id;
 
           return (
@@ -320,7 +385,7 @@ function UserManagementTab() {
                       등급 수동 지정 <span className="text-oracle-hot">★ 관리자 오버라이드</span>
                     </label>
                     <div className="grid grid-cols-2 gap-1.5">
-                      {GRADES.map((g) => (
+                      {grades.map((g) => (
                         <button
                           key={g.id}
                           onClick={() => setEditGrade(g.id)}
@@ -337,7 +402,7 @@ function UserManagementTab() {
                         </button>
                       ))}
                     </div>
-                    {editGrade !== getGradeByPoints(editPoints).id && (
+                    {editGrade !== gradeByPoints(editPoints).id && (
                       <p className="text-xs text-oracle-hot flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
                         포인트 기반 등급과 다른 등급이 지정됩니다 (★ 표시)
@@ -370,13 +435,24 @@ function OracleManagementTab() {
   const [closingId, setClosingId] = useState<string | null>(null);
   const [resultOracleId, setResultOracleId] = useState<string | null>(null);
 
-  const cycleStatus = (id: string, current: string) => {
-    const next = current === "live" ? "closed" : current === "upcoming" ? "live" : "upcoming";
-    if (next === "closed") {
-      setClosingId(id); // trigger result selection
-    } else {
-      updateOracle(id, { status: next as any });
+  /**
+   * 상태 배지를 눌러 순환시킨다.
+   * 결과 확정(정답 선택)은 여기서도 할 수 있지만, 마감된 예언은
+   * "승인 대기" 탭에서 배팅 분포를 보고 처리하는 쪽이 낫다.
+   */
+  const cycleStatus = (id: string, current: OracleStatus) => {
+    if (current === "live") {
+      setClosingId(id); // 정답 선택으로
+      return;
     }
+    if (current === "awaiting") {
+      setClosingId(id);
+      return;
+    }
+    // 종료·무효된 예언을 다시 열면 이전 정답은 지운다.
+    const next: OracleStatus = current === "upcoming" ? "live" : "upcoming";
+    updateOracle(id, { status: next, winningOptionId: undefined });
+    setResultOracleId((prev) => (prev === id ? null : prev));
   };
 
   const handleSetWinner = (oracleId: string, optionId: string) => {
@@ -389,12 +465,20 @@ function OracleManagementTab() {
     (o) => !search || o.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const STATUS_COLORS = {
+  const STATUS_COLORS: Record<OracleStatus, string> = {
     live: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     upcoming: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    awaiting: "bg-oracle-trending/20 text-oracle-trending border-oracle-trending/40",
     closed: "bg-slate-600/30 text-slate-500 border-slate-600/30",
+    voided: "bg-red-500/15 text-red-400 border-red-500/30",
   };
-  const STATUS_LABELS = { live: "진행중", upcoming: "예정", closed: "종료" };
+  const STATUS_LABELS: Record<OracleStatus, string> = {
+    live: "진행중",
+    upcoming: "예정",
+    awaiting: "결과 대기",
+    closed: "종료",
+    voided: "무효",
+  };
 
   return (
     <div className="space-y-4">
@@ -412,6 +496,7 @@ function OracleManagementTab() {
         {filtered.map((oracle) => {
           const isClosing = closingId === oracle.id;
           const showResult = resultOracleId === oracle.id;
+          const resultOption = oracle.options.find((o) => o.id === oracle.winningOptionId);
 
           return (
             <div key={oracle.id} className={clsx(
@@ -485,12 +570,9 @@ function OracleManagementTab() {
                 <div className="ml-auto text-xs text-slate-600">by {oracle.creatorName}</div>
               </div>
 
-              {/* Result preview */}
-              {showResult && (
-                <OracleResult
-                  oracle={oracle}
-                  winningOption={oracle.options.find(o => o.percentage === Math.max(...oracle.options.map(x => x.percentage)))!}
-                />
+              {/* Result preview — 관리자가 실제로 고른 정답을 그대로 보여준다 */}
+              {showResult && resultOption && (
+                <OracleResult oracle={oracle} winningOption={resultOption} />
               )}
             </div>
           );
@@ -504,15 +586,22 @@ function OracleManagementTab() {
 /*  Grade Settings Tab                    */
 /* ────────────────────────────────────── */
 function GradeSettingsTab() {
-  const [thresholds, setThresholds] = useState(
-    GRADES.map((g) => ({ id: g.id, min: g.minPoints }))
-  );
+  const { grades, thresholds, saveThresholds } = useGrades();
+  // 편집 중인 값은 로컬에 두고, "저장"을 눌러야 전역에 반영한다.
+  const [draft, setDraft] = useState<GradeThresholds>(thresholds);
   const [saved, setSaved] = useState(false);
 
   const update = (id: GradeId, value: number) => {
-    setThresholds((prev) => prev.map((t) => (t.id === id ? { ...t, min: value } : t)));
+    setDraft((prev) => ({ ...prev, [id]: value }));
     setSaved(false);
   };
+
+  const handleSave = () => {
+    saveThresholds(draft);
+    setSaved(true);
+  };
+
+  const isDirty = grades.some((g) => (draft[g.id] ?? g.minPoints) !== thresholds[g.id]);
 
   return (
     <div className="space-y-4">
@@ -522,8 +611,7 @@ function GradeSettingsTab() {
       </div>
 
       <div className="space-y-3">
-        {GRADES.map((grade, idx) => {
-          const threshold = thresholds.find((t) => t.id === grade.id);
+        {grades.map((grade, idx) => {
           return (
             <div key={grade.id} className={clsx("rounded-xl border p-4 space-y-3", grade.bgColor, grade.borderColor)}>
               {/* Grade info */}
@@ -544,7 +632,7 @@ function GradeSettingsTab() {
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    value={threshold?.min ?? grade.minPoints}
+                    value={idx === 0 ? 0 : draft[grade.id] ?? grade.minPoints}
                     onChange={(e) => update(grade.id, Number(e.target.value))}
                     disabled={idx === 0}
                     className={clsx(
@@ -576,15 +664,16 @@ function GradeSettingsTab() {
       </div>
 
       <button
-        onClick={() => setSaved(true)}
+        onClick={handleSave}
+        disabled={!isDirty && saved}
         className={clsx(
           "w-full py-3 rounded-xl font-bold text-sm transition-all",
-          saved
+          saved && !isDirty
             ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
             : "bg-gradient-to-r from-oracle-purple to-oracle-glow text-white hover:opacity-90"
         )}
       >
-        {saved ? "✓ 저장 완료" : "변경사항 저장"}
+        {saved && !isDirty ? "✓ 저장 완료 — 등급이 즉시 재계산되었습니다" : "변경사항 저장"}
       </button>
     </div>
   );
@@ -594,6 +683,7 @@ function GradeSettingsTab() {
 /*  Main Admin Page                       */
 /* ────────────────────────────────────── */
 export default function AdminPage() {
+  const { awaitingOracles } = useOracles();
   const [authed, setAuthed] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>("대시보드");
 
@@ -603,6 +693,7 @@ export default function AdminPage() {
 
   const TABS: { key: AdminTab; icon: React.ReactNode }[] = [
     { key: "대시보드", icon: <LayoutDashboard className="w-4 h-4" /> },
+    { key: "승인 대기", icon: <Gavel className="w-4 h-4" /> },
     { key: "사용자관리", icon: <Users className="w-4 h-4" /> },
     { key: "예언관리", icon: <Scroll className="w-4 h-4" /> },
     { key: "등급설정", icon: <Star className="w-4 h-4" /> },
@@ -643,6 +734,11 @@ export default function AdminPage() {
             >
               {tab.icon}
               {tab.key}
+              {tab.key === "승인 대기" && awaitingOracles.length > 0 && (
+                <span className="ml-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-oracle-hot text-white">
+                  {awaitingOracles.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -651,6 +747,7 @@ export default function AdminPage() {
       {/* Content */}
       <main className="flex-1 px-4 py-4">
         {activeTab === "대시보드" && <DashboardTab />}
+        {activeTab === "승인 대기" && <ReviewQueueTab />}
         {activeTab === "사용자관리" && <UserManagementTab />}
         {activeTab === "예언관리" && <OracleManagementTab />}
         {activeTab === "등급설정" && <GradeSettingsTab />}

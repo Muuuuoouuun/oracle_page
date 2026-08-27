@@ -1,16 +1,16 @@
 "use client";
 
-import { Grade, GRADES, getNextGradeProgress } from "@/lib/grades";
+import { useGrades } from "@/lib/context";
 import clsx from "clsx";
 import { Shield, Star, ChevronRight } from "lucide-react";
 
 interface Props {
   points: number;
-  showAll?: boolean;
 }
 
-export default function GradeCard({ points, showAll = false }: Props) {
-  const { current, next, progress, pointsNeeded } = getNextGradeProgress(points);
+export default function GradeCard({ points }: Props) {
+  const { nextGradeProgress } = useGrades();
+  const { current, next, progress, pointsNeeded } = nextGradeProgress(points);
 
   return (
     <div
@@ -90,7 +90,8 @@ export default function GradeCard({ points, showAll = false }: Props) {
 
 /** All grades overview grid */
 export function GradeGrid({ currentPoints }: { currentPoints: number }) {
-  const { current } = getNextGradeProgress(currentPoints);
+  const { grades, gradeByPoints } = useGrades();
+  const current = gradeByPoints(currentPoints);
 
   return (
     <div className="space-y-3">
@@ -99,7 +100,7 @@ export function GradeGrid({ currentPoints }: { currentPoints: number }) {
         전체 등급 로드맵
       </h3>
       <div className="space-y-2">
-        {GRADES.map((grade) => {
+        {grades.map((grade) => {
           const isCurrentGrade = grade.id === current.id;
           const isUnlocked = currentPoints >= grade.minPoints;
 

@@ -25,7 +25,27 @@ export interface Grade {
   accuracyBonus: number;     // % bonus to grade upgrade threshold reduction
 }
 
-export const GRADES: Grade[] = [
+/**
+ * 등급별 혜택 목록은 실제 동작하는 규칙에서만 생성한다.
+ * 여기에 없는 혜택은 코드에도 없다는 뜻 — 문구와 구현이 어긋날 수 없게 만든 장치.
+ */
+function perksFor(g: { rank: number; accuracyBonus: number }): string[] {
+  const perks: string[] = [];
+
+  const limit = dailyOracleLimit(g.rank);
+  if (limit === 0) perks.push("커뮤니티 피드 열람");
+  else if (limit === Infinity) perks.push("예언 생성 무제한");
+  else perks.push(`예언 생성 (일 ${limit}개)`);
+
+  perks.push("예언 참여 · 배팅");
+  if (g.rank >= 2) perks.push("커뮤니티 댓글 작성");
+  perks.push(`일일 보너스 ${dailyBonusFor(g.rank).toLocaleString()}P`);
+  if (g.accuracyBonus > 0) perks.push(`적중 시 배당 +${g.accuracyBonus}%`);
+
+  return perks;
+}
+
+const BASE_GRADES: Omit<Grade, "perks">[] = [
   {
     id: "magikarp",
     rank: 1,
@@ -40,7 +60,6 @@ export const GRADES: Grade[] = [
     bgColor: "bg-slate-500/15",
     borderColor: "border-slate-600/50",
     glowColor: "rgba(148,163,184,0.3)",
-    perks: ["커뮤니티 피드 열람", "기본 예언 참여"],
     accuracyBonus: 0,
   },
   {
@@ -57,7 +76,6 @@ export const GRADES: Grade[] = [
     bgColor: "bg-emerald-500/15",
     borderColor: "border-emerald-600/50",
     glowColor: "rgba(52,211,153,0.3)",
-    perks: ["커뮤니티 댓글 작성", "예언 북마크", "기본 배팅 참여"],
     accuracyBonus: 5,
   },
   {
@@ -74,7 +92,6 @@ export const GRADES: Grade[] = [
     bgColor: "bg-yellow-500/15",
     borderColor: "border-yellow-500/50",
     glowColor: "rgba(250,204,21,0.3)",
-    perks: ["예언 생성 (일 3개)", "특별 배팅 옵션", "커뮤니티 좋아요 강화", "주간 보너스 포인트"],
     accuracyBonus: 10,
   },
   {
@@ -91,7 +108,6 @@ export const GRADES: Grade[] = [
     bgColor: "bg-orange-500/15",
     borderColor: "border-orange-500/50",
     glowColor: "rgba(251,146,60,0.4)",
-    perks: ["예언 생성 (일 10개)", "하이배팅 참여", "예언 편집 권한", "월간 보너스 이벤트", "전용 뱃지"],
     accuracyBonus: 15,
   },
   {
@@ -108,7 +124,6 @@ export const GRADES: Grade[] = [
     bgColor: "bg-pink-500/15",
     borderColor: "border-pink-500/50",
     glowColor: "rgba(244,114,182,0.4)",
-    perks: ["무제한 예언 생성", "VIP 예언 채널 접근", "포인트 2배 이벤트 참여", "커뮤니티 투표 가중치 x2", "희귀 뱃지"],
     accuracyBonus: 20,
   },
   {
@@ -125,7 +140,6 @@ export const GRADES: Grade[] = [
     bgColor: "bg-purple-500/15",
     borderColor: "border-purple-500/50",
     glowColor: "rgba(192,132,252,0.5)",
-    perks: ["전설 전용 예언 카테고리", "포인트 3배 이벤트", "다른 유저 예언 추천 기능", "관리자 예언 검토 요청", "전설 전용 뱃지 + 테두리"],
     accuracyBonus: 25,
   },
   {
@@ -142,33 +156,106 @@ export const GRADES: Grade[] = [
     bgColor: "bg-amber-500/15",
     borderColor: "border-amber-400/60",
     glowColor: "rgba(252,211,77,0.6)",
-    perks: ["모든 기능 무제한 사용", "포인트 5배 이벤트", "신의 예언 채널", "홈 피처드 노출", "황금 테두리 + 특별 이펙트", "관리자 소통 채널"],
     accuracyBonus: 30,
   },
 ];
 
+/** 혜택 문구는 perksFor 가 이 규칙들에서 직접 생성한다. */
+export const GRADES: Grade[] = BASE_GRADES.map((g) => ({ ...g, perks: perksFor(g) }));
+
+/**
+ * 등급별 하루 예언 생성 한도. (잉어킹은 생성 불가 → 0)
+ */
+export function dailyOracleLimit(rank: number): number {
+  if (rank <= 1) return 0;
+  if (rank === 2) return 3;
+  if (rank === 3) return 5;
+  if (rank === 4) return 10;
+  return Infinity;
+}
+
+/** 등급별 일일 출석 보너스 포인트. */
+export function dailyBonusFor(rank: number): number {
+  return 200 + (rank - 1) * 150;
+}
+
+/** 포인트가 이 아래로 떨어지면 재기 지원금을 받을 수 있다. */
+export const RELIEF_THRESHOLD = 50;
+/** 재기 지원금 수령 후 보장되는 최소 잔고. */
+export const RELIEF_FLOOR = 100;
+
+/** 연승 구간별 추가 배당 비율. 3연승부터 붙는다. */
+export function streakBonusRate(streak: number): number {
+  if (streak >= 7) return 0.15;
+  if (streak >= 5) return 0.1;
+  if (streak >= 3) return 0.05;
+  return 0;
+}
+
+/** 등급별 최소 포인트 기준. 관리자 페이지에서 변경 가능. */
+export type GradeThresholds = Record<GradeId, number>;
+
+export const DEFAULT_THRESHOLDS: GradeThresholds = GRADES.reduce((acc, g) => {
+  acc[g.id] = g.minPoints;
+  return acc;
+}, {} as GradeThresholds);
+
+/**
+ * 임계값을 적용한 등급 목록을 만든다.
+ * 최하위 등급은 항상 0P로 고정되고, 각 등급의 maxPoints는 다음 등급 기준에서 파생된다.
+ * 입력이 순서에 어긋나도(예: 상위 등급이 하위보다 낮게 지정) rank 순으로 단조 증가하도록 보정한다.
+ */
+export function resolveGrades(thresholds?: Partial<GradeThresholds>): Grade[] {
+  const byRank = [...GRADES].sort((a, b) => a.rank - b.rank);
+
+  // 1) 임계값 정규화: 0 이상, rank 순으로 단조 증가
+  let prev = -1;
+  const mins = byRank.map((g, i) => {
+    if (i === 0) {
+      prev = 0;
+      return 0; // 최하위 등급은 0P 고정
+    }
+    const raw = thresholds?.[g.id] ?? DEFAULT_THRESHOLDS[g.id];
+    const min = Math.max(prev + 1, Math.max(0, Math.floor(raw)));
+    prev = min;
+    return min;
+  });
+
+  // 2) maxPoints는 다음 등급의 min - 1, 최상위는 null
+  return byRank.map((g, i) => ({
+    ...g,
+    minPoints: mins[i],
+    maxPoints: i === byRank.length - 1 ? null : mins[i + 1] - 1,
+  }));
+}
+
 /** 포인트로 등급 조회 */
-export function getGradeByPoints(points: number): Grade {
+export function getGradeByPoints(points: number, grades: Grade[] = GRADES): Grade {
   return (
-    [...GRADES].reverse().find((g) => points >= g.minPoints) ?? GRADES[0]
+    [...grades].sort((a, b) => b.rank - a.rank).find((g) => points >= g.minPoints) ??
+    grades[0]
   );
 }
 
 /** 등급 ID로 등급 조회 */
-export function getGradeById(id: GradeId): Grade {
-  return GRADES.find((g) => g.id === id) ?? GRADES[0];
+export function getGradeById(id: GradeId, grades: Grade[] = GRADES): Grade {
+  return grades.find((g) => g.id === id) ?? grades[0];
 }
 
 /** 다음 등급까지 남은 포인트 */
-export function getNextGradeProgress(points: number): {
+export function getNextGradeProgress(
+  points: number,
+  grades: Grade[] = GRADES
+): {
   current: Grade;
   next: Grade | null;
   progress: number;       // 0-100
   pointsNeeded: number;
 } {
-  const current = getGradeByPoints(points);
-  const nextIndex = GRADES.findIndex((g) => g.id === current.id) + 1;
-  const next = nextIndex < GRADES.length ? GRADES[nextIndex] : null;
+  const byRank = [...grades].sort((a, b) => a.rank - b.rank);
+  const current = getGradeByPoints(points, byRank);
+  const nextIndex = byRank.findIndex((g) => g.id === current.id) + 1;
+  const next = nextIndex < byRank.length ? byRank[nextIndex] : null;
 
   if (!next || current.maxPoints === null) {
     return { current, next: null, progress: 100, pointsNeeded: 0 };
@@ -176,8 +263,11 @@ export function getNextGradeProgress(points: number): {
 
   const rangeTotal = next.minPoints - current.minPoints;
   const rangeProgress = points - current.minPoints;
-  const progress = Math.min(100, Math.round((rangeProgress / rangeTotal) * 100));
-  const pointsNeeded = next.minPoints - points;
+  const progress =
+    rangeTotal > 0
+      ? Math.max(0, Math.min(100, Math.round((rangeProgress / rangeTotal) * 100)))
+      : 100;
+  const pointsNeeded = Math.max(0, next.minPoints - points);
 
   return { current, next, progress, pointsNeeded };
 }

@@ -6,15 +6,17 @@ import {
   ArrowLeft, Users, Coins, Clock, MessageCircle,
   Flame, TrendingUp, Sparkles, Send
 } from "lucide-react";
-import { useOracles, useUser } from "@/lib/context";
-import { getGradeById } from "@/lib/grades";
+import { useComments, useOracles, useUser } from "@/lib/context";
 import BettingButtons from "@/components/BettingButtons";
 import TrendingBadge from "@/components/TrendingBadge";
 import GradeBadge from "@/components/GradeBadge";
+import OracleResult from "@/components/OracleResult";
+import ShareResultButton from "@/components/ShareResultButton";
+import { useNow } from "@/lib/useNow";
 import clsx from "clsx";
 
-function formatTimeLeft(date: Date): string {
-  const diff = date.getTime() - Date.now();
+function formatTimeLeft(date: Date, now: number): string {
+  const diff = date.getTime() - now;
   if (diff < 0) return "종료됨";
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}분 남음`;
@@ -55,25 +57,8 @@ function BetChart({ options }: { options: { label: string; percentage: number; t
 }
 
 /* ── Comment Section ── */
-interface CommentData {
-  id: string;
-  author: string;
-  avatar: string;
-  gradeId: string;
-  text: string;
-  likes: number;
-  liked: boolean;
-  createdAt: Date;
-}
-
-const SEED_COMMENTS: CommentData[] = [
-  { id: "c1", author: "오라클마스터", avatar: "🔮", gradeId: "arceus", text: "이건 99% 확률이지. 무조건 참여!", likes: 45, liked: false, createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
-  { id: "c2", author: "현실주의자", avatar: "🧐", gradeId: "mewtwo", text: "변수가 너무 많아서 쉽게 판단하기 어렵네요. 신중하게 참여합니다.", likes: 23, liked: false, createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-  { id: "c3", author: "피카예언", avatar: "⚡", gradeId: "pikachu", text: "역시 커뮤니티의 예언이 맞을 것 같아요 👍", likes: 12, liked: false, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
-];
-
-function timeAgo(d: Date) {
-  const m = Math.floor((Date.now() - d.getTime()) / 60000);
+function timeAgo(d: Date, now: number) {
+  const m = Math.floor((now - d.getTime()) / 60000);
   if (m < 1) return "방금";
   if (m < 60) return `${m}분 전`;
   const h = Math.floor(m / 60);
@@ -83,36 +68,22 @@ function timeAgo(d: Date) {
 
 function CommentSection({ oracleId }: { oracleId: string }) {
   const { me } = useUser();
-  const [comments, setComments] = useState<CommentData[]>(SEED_COMMENTS);
+  const now = useNow();
+  const { commentsFor, addComment, toggleCommentLike } = useComments();
+  const comments = commentsFor(oracleId);
   const [input, setInput] = useState("");
   const [sort, setSort] = useState<"latest" | "popular">("popular");
 
-  const handleLike = (id: string) => {
-    setComments((prev) =>
-      prev.map((c) => c.id === id ? { ...c, liked: !c.liked, likes: c.liked ? c.likes - 1 : c.likes + 1 } : c)
-    );
-  };
-
   const handleSubmit = () => {
     if (!input.trim()) return;
-    setComments((prev) => [
-      {
-        id: `c-${Date.now()}`,
-        author: me.name,
-        avatar: me.avatar,
-        gradeId: me.gradeId,
-        text: input.trim(),
-        likes: 0,
-        liked: false,
-        createdAt: new Date(),
-      },
-      ...prev,
-    ]);
+    addComment(oracleId, input);
     setInput("");
   };
 
   const sorted = [...comments].sort((a, b) =>
-    sort === "popular" ? b.likes - a.likes : b.createdAt.getTime() - a.createdAt.getTime()
+    sort === "popular"
+      ? b.likes - a.likes
+      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return (
@@ -165,38 +136,46 @@ function CommentSection({ oracleId }: { oracleId: string }) {
 
       {/* Comment list */}
       <div className="space-y-3">
-        {sorted.map((c) => (
-          <div key={c.id} className="flex gap-3">
-            <span className="text-xl shrink-0">{c.avatar}</span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-sm font-bold text-white">{c.author}</span>
-                <GradeBadge gradeId={c.gradeId as any} size="xs" />
-                <span className="text-xs text-slate-600">{timeAgo(c.createdAt)}</span>
+        {sorted.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-6">
+            아직 댓글이 없어요. 첫 번째 예언가가 되어보세요!
+          </p>
+        ) : (
+          sorted.map((c) => (
+            <div key={c.id} className="flex gap-3">
+              <span className="text-xl shrink-0">{c.avatar}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-bold text-white">{c.author}</span>
+                  <GradeBadge gradeId={c.gradeId} size="xs" />
+                  <span className="text-xs text-slate-600">{now === null ? "" : timeAgo(new Date(c.createdAt), now)}</span>
+                </div>
+                <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
+                <button
+                  onClick={() => toggleCommentLike(c.id)}
+                  className={clsx(
+                    "flex items-center gap-1 mt-1.5 text-xs transition-colors",
+                    c.likedByMe ? "text-oracle-hot" : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  {c.likedByMe ? "❤️" : "🤍"} {c.likes}
+                </button>
               </div>
-              <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">{c.text}</p>
-              <button
-                onClick={() => handleLike(c.id)}
-                className={clsx(
-                  "flex items-center gap-1 mt-1.5 text-xs transition-colors",
-                  c.liked ? "text-oracle-hot" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                {c.liked ? "❤️" : "🤍"} {c.likes}
-              </button>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 /* ── Page ── */
+// Next.js 15+ 에서 params 는 Promise 이므로 use() 로 푼다.
 export default function OracleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { oracles } = useOracles();
-  const { me, myBets, placeBet } = useUser();
+  const { myBets } = useUser();
+  const now = useNow();
 
   const oracle = oracles.find((o) => o.id === id);
   if (!oracle) {
@@ -209,14 +188,19 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const myBet = myBets.find((b) => b.oracleId === id);
-  const isUrgent = oracle.endsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
+  const endsAt = new Date(oracle.endsAt);
+  // 시간 의존 표시는 마운트 이후에만 계산한다 (하이드레이션 미스매치 방지)
+  const isUrgent = now !== null && endsAt.getTime() - now < 24 * 60 * 60 * 1000;
   const relatedOracles = oracles.filter((o) => o.id !== id && o.category === oracle.category).slice(0, 3);
-
-  const handleBet = (oracleId: string, optionId: string, amount: number) => {
-    const opt = oracle.options.find((o) => o.id === optionId);
-    if (opt) placeBet(oracleId, optionId, opt.label, oracle.title, amount);
-  };
+  const isClosed = oracle.status === "closed";
+  const isVoided = oracle.status === "voided";
+  const isAwaiting = oracle.status === "awaiting";
+  const isExpired =
+    !isClosed && !isVoided && !isAwaiting && now !== null && endsAt.getTime() <= now;
+  const winningOption = oracle.winningOptionId
+    ? oracle.options.find((o) => o.id === oracle.winningOptionId)
+    : undefined;
+  const myBet = myBets.find((b) => b.oracleId === id);
 
   return (
     <div className="max-w-2xl mx-auto min-h-screen">
@@ -245,11 +229,25 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
             <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{oracle.totalParticipants.toLocaleString()}명 참여</span>
             <span className="flex items-center gap-1"><Coins className="w-3.5 h-3.5 text-oracle-trending" />{oracle.totalPool.toLocaleString()}P 풀</span>
             <span className={clsx("flex items-center gap-1", isUrgent && "text-oracle-hot font-bold")}>
-              <Clock className="w-3.5 h-3.5" />{formatTimeLeft(oracle.endsAt)}
+              <Clock className="w-3.5 h-3.5" />{now === null ? "—" : formatTimeLeft(endsAt, now)}
             </span>
             <span className="text-oracle-purple/70">by {oracle.creatorName}</span>
           </div>
         </div>
+
+        {/* Result (closed only) */}
+        {isClosed && winningOption && (
+          <div className="space-y-2">
+            <OracleResult oracle={oracle} winningOption={winningOption} />
+            {myBet && myBet.status !== "pending" && (
+              <ShareResultButton
+                oracle={oracle}
+                bet={myBet}
+                won={myBet.status === "won"}
+              />
+            )}
+          </div>
+        )}
 
         {/* Chart */}
         <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4">
@@ -260,12 +258,47 @@ export default function OracleDetailPage({ params }: { params: Promise<{ id: str
         <div className="rounded-2xl border border-oracle-border bg-oracle-card p-4 space-y-3">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-oracle-glow" />
-            {oracle.status === "closed" ? "예언 종료" : "예언 참여하기"}
+            {isVoided
+              ? "무효 처리됨"
+              : isAwaiting
+              ? "결과 확정 대기"
+              : isClosed
+              ? "예언 종료"
+              : isExpired
+              ? "마감됨"
+              : "예언 참여하기"}
           </h2>
-          {oracle.status === "closed" ? (
-            <p className="text-sm text-slate-400 text-center py-4">이 예언은 종료되었습니다.</p>
+          {isVoided ? (
+            <div className="text-center py-4 space-y-1.5">
+              <p className="text-sm text-slate-300">
+                판정할 수 없어 무효 처리된 예언입니다.
+              </p>
+              <p className="text-xs text-slate-500">
+                참여하신 포인트는 전액 환불되었습니다. 승패로 기록되지 않아
+                연승과 적중률에는 영향이 없습니다.
+              </p>
+            </div>
+          ) : isAwaiting ? (
+            <div className="text-center py-4 space-y-1.5">
+              <p className="text-sm text-slate-300">
+                마감되었습니다. 관리자가 결과를 확인하는 중입니다.
+              </p>
+              <p className="text-xs text-slate-500">
+                결과가 확정되면 알림으로 알려드리고 포인트가 정산됩니다.
+              </p>
+            </div>
+          ) : isClosed ? (
+            <p className="text-sm text-slate-400 text-center py-4">
+              {winningOption
+                ? "이 예언은 정산이 완료되었습니다."
+                : "이 예언은 종료되었습니다."}
+            </p>
           ) : (
-            <BettingButtons options={oracle.options} oracleId={oracle.id} onBet={handleBet} />
+            <BettingButtons
+              options={oracle.options}
+              oracleId={oracle.id}
+              locked={isExpired}
+            />
           )}
         </div>
 
